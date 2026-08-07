@@ -230,6 +230,8 @@ document.addEventListener('DOMContentLoaded', () => {
         scrubberProgress.style.width = `${progress * 100}%`;
       }
 
+      scrollyWrapper.classList.toggle('scrolly-finished', progress >= 0.995);
+
       // Render 60fps canvas graphics
       renderScrollyCanvas(progress);
 
@@ -319,11 +321,17 @@ document.addEventListener('DOMContentLoaded', () => {
     ScrollTrigger.create({
       trigger: scrollyWrapper,
       start: "top top",
-      end: "+=250%",
+      end: () => window.matchMedia('(max-width: 768px)').matches ? "+=170%" : "+=250%",
       pin: ".scrolly-sticky-viewport",
       scrub: 0.6,
       onUpdate: (self) => {
         updateStageProgress(self.progress);
+      },
+      onEnterBack: () => {
+        scrollyWrapper.classList.remove('scrolly-finished');
+      },
+      onLeaveBack: () => {
+        scrollyWrapper.classList.remove('scrolly-finished');
       }
     });
   }
@@ -470,16 +478,29 @@ document.addEventListener('DOMContentLoaded', () => {
      ========================================== */
   if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
     const allRevealTargets = document.querySelectorAll('.section-header, .about-card, .skill-card, .project-card, .net-card, .edu-card, .contact-card, .reveal-up, .reveal-left, .reveal-right');
+    const mobileReveal = window.matchMedia('(max-width: 768px)').matches;
+
+    function getRevealOffset(el) {
+      if (!mobileReveal) return { x: 0, y: 45 };
+      if (el.classList.contains('reveal-left')) return { x: -18, y: 0 };
+      if (el.classList.contains('reveal-right')) return { x: 18, y: 0 };
+      if (el.classList.contains('reveal-fade')) return { x: 0, y: 0 };
+      return { x: 0, y: 20 };
+    }
 
     allRevealTargets.forEach(el => {
+      const revealOffset = getRevealOffset(el);
+
       gsap.fromTo(el, 
         { 
           opacity: 0, 
-          y: 45,
-          scale: 0.98 
+          x: revealOffset.x,
+          y: revealOffset.y,
+          scale: mobileReveal ? 0.99 : 0.98 
         }, 
         {
           opacity: 1, 
+          x: 0,
           y: 0, 
           scale: 1,
           duration: 0.85,
@@ -669,4 +690,3 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 });
-
