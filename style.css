@@ -1674,3 +1674,676 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================
+   LENIS SMOOTH SCROLLING BASE STYLES
+   ========================================== */
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
+
+
+/* ==========================================
+   SCROLLYTELLING HERO SECTION & CANVAS
+   ========================================== */
+.scrolly-section-wrapper {
+  position: relative;
+  width: 100%;
+  height: 350vh; /* Scrubber depth threshold */
+  background: var(--bg-dark);
+}
+
+.scrolly-sticky-viewport {
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+#scrollyCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.canvas-grid-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+  background: 
+    radial-gradient(circle at 50% 50%, transparent 55%, rgba(9, 13, 22, 0.75) 92%),
+    linear-gradient(to bottom, rgba(9, 13, 22, 0.3) 0%, transparent 20%, transparent 80%, rgba(9, 13, 22, 0.4) 100%);
+}
+
+.light-theme .canvas-grid-overlay {
+  background: 
+    radial-gradient(circle at 50% 50%, transparent 55%, rgba(248, 250, 252, 0.75) 92%),
+    linear-gradient(to bottom, rgba(248, 250, 252, 0.3) 0%, transparent 20%, transparent 80%, rgba(248, 250, 252, 0.4) 100%);
+}
+
+/* Scrolly Parallax Stage Overlay Container */
+.scrolly-stage-container {
+  position: relative;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scrolly-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -45%) scale(0.96);
+  width: 95%;
+  max-width: 1100px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.45s;
+  text-align: center;
+}
+
+.scrolly-stage.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* Sentence-by-sentence staggered fade-in inside active stage */
+.scrolly-stage.active > * {
+  animation: sentenceFadeIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes sentenceFadeIn {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Transparent Crystal HUD Panels (No heavy blur so background 3D canvas is 100% visible) */
+.glass-hud {
+  background: rgba(9, 13, 22, 0.22);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 24px;
+  padding: 2.5rem;
+  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.35), inset 0 0 25px rgba(0, 240, 255, 0.08);
+  text-align: left;
+}
+
+.light-theme .glass-hud {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  border-color: rgba(0, 240, 255, 0.45);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.06);
+}
+
+/* Armoury Crate Style Hero Brand Center Opening Screen */
+.hero-brand-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin-top: -3.5rem;
+}
+
+.brand-logo-frame {
+  position: relative;
+  width: 175px;
+  height: 175px;
+  border-radius: 50%;
+  padding: 6px;
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.9), rgba(138, 43, 226, 0.9), rgba(0, 240, 255, 0.5));
+  box-shadow: 0 0 40px rgba(0, 240, 255, 0.45), inset 0 0 20px rgba(0, 240, 255, 0.3);
+  margin-bottom: 1.8rem;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.brand-logo-frame:hover {
+  transform: scale(1.06);
+  box-shadow: 0 0 60px rgba(0, 240, 255, 0.7), inset 0 0 30px rgba(0, 240, 255, 0.5);
+}
+
+.brand-logo-glow {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 240, 255, 0.35) 0%, transparent 70%);
+  z-index: -1;
+  animation: pulseGlow 3s infinite ease-in-out;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.08); }
+}
+
+.brand-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid #050b14;
+}
+
+.brand-title {
+  font-size: 3.2rem;
+  font-weight: 900;
+  letter-spacing: 12px;
+  color: #ffffff;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  font-family: 'Outfit', sans-serif;
+  text-shadow: 0 0 30px rgba(0, 240, 255, 0.4);
+}
+
+.brand-subtitle {
+  font-size: 0.9rem;
+  letter-spacing: 4px;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 1.2rem;
+}
+
+/* Light theme overrides for brand title, subtitle & scroll indicator */
+.light-theme .brand-title {
+  color: #0f172a;
+  text-shadow: 0 0 20px rgba(0, 168, 255, 0.25);
+  background: linear-gradient(135deg, #0f172a 0%, #0284c7 60%, #4f46e5 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.light-theme .brand-subtitle {
+  color: #0284c7;
+  font-weight: 700;
+}
+
+.light-theme .armoury-scroll-indicator {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.light-theme .scroll-line {
+  background: linear-gradient(to bottom, #0284c7, transparent);
+}
+
+/* Armoury Crate Style Scroll Indicator - Positioned cleanly below typing text */
+.armoury-scroll-indicator {
+  position: absolute;
+  bottom: 0.8rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  color: #ffffff;
+  font-size: 0.75rem;
+  letter-spacing: 5px;
+  font-weight: 600;
+  z-index: 10;
+}
+
+.scroll-line {
+  width: 2px;
+  height: 24px;
+  background: linear-gradient(to bottom, var(--accent-cyan), transparent);
+  animation: scrollLinePulse 1.8s infinite ease-in-out;
+}
+
+@keyframes scrollLinePulse {
+  0% { transform: scaleY(0.3); transform-origin: top; opacity: 0.4; }
+  50% { transform: scaleY(1); transform-origin: top; opacity: 1; }
+  100% { transform: scaleY(0.3); transform-origin: bottom; opacity: 0.2; }
+}
+
+/* Static Profile Image in About Section */
+.profile-img-static {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid var(--accent-cyan);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.35);
+}
+
+.scrolly-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1.2rem;
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid var(--accent-cyan);
+  border-radius: 30px;
+  color: var(--accent-cyan);
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1.2rem;
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+}
+
+.scroll-prompt {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.mouse-icon {
+  width: 24px;
+  height: 38px;
+  border: 2px solid var(--accent-cyan);
+  border-radius: 15px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding-top: 6px;
+}
+
+.mouse-wheel {
+  width: 4px;
+  height: 8px;
+  background: var(--accent-cyan);
+  border-radius: 2px;
+  animation: mouseScroll 1.6s infinite ease-in-out;
+}
+
+@keyframes mouseScroll {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(12px); }
+}
+
+/* Glassmorphism HUD Panels */
+.glass-hud {
+  background: rgba(13, 21, 38, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 20px;
+  padding: 2.2rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 240, 255, 0.05);
+  text-align: left;
+}
+
+.light-theme .glass-hud {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 240, 255, 0.4);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+}
+
+.hud-header {
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.8rem;
+}
+
+.hud-tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--accent-cyan);
+  margin-bottom: 0.3rem;
+}
+
+.hud-header h3 {
+  font-size: 1.6rem;
+  color: var(--text-heading);
+  margin: 0;
+}
+
+/* Stage 2 Skills Grid inside HUD */
+.scrolly-skills-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.scrolly-skill-item .skill-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.scrolly-skill-item .skill-val {
+  color: var(--accent-cyan);
+  font-family: 'Fira Code', monospace;
+}
+
+.scrolly-progress-track {
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.scrolly-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 6px;
+  transition: width 0.1s linear;
+}
+
+.fill-java { background: linear-gradient(90deg, #f89820, #e76f51); }
+.fill-php  { background: linear-gradient(90deg, #777bb4, #8a2be2); }
+.fill-js   { background: linear-gradient(90deg, #f7df1e, #f39c12); }
+.fill-sql  { background: linear-gradient(90deg, #00f0ff, #0077b6); }
+.fill-net  { background: linear-gradient(90deg, #2ecc71, #1abc9c); }
+
+/* Stage 3 Architecture Features List */
+.scrolly-features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.feature-badge-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.2rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.feature-badge-item:hover {
+  transform: translateX(6px);
+  border-color: var(--accent-cyan);
+}
+
+.badge-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(0, 240, 255, 0.12);
+  color: var(--accent-cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.badge-text h4 {
+  margin: 0 0 0.2rem 0;
+  font-size: 1.1rem;
+  color: var(--text-heading);
+}
+
+.badge-text p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+/* Stage 4 Impact Stats Flex */
+.scrolly-stats-flex {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.8rem;
+}
+
+.scrolly-cta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Bottom Scrubber Progress Bar */
+.scrolly-scrubber-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  z-index: 10;
+}
+
+.scrolly-scrubber-progress {
+  width: 0%;
+  height: 100%;
+  background: var(--grad-cyan-blue);
+  box-shadow: 0 0 10px var(--accent-cyan);
+  transition: width 0.05s linear;
+}
+
+.light-theme .scrolly-scrubber-bar {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.light-theme .scrolly-scrubber-progress {
+  background: linear-gradient(90deg, #0284c7, #4f46e5);
+  box-shadow: 0 0 10px rgba(2, 132, 199, 0.5);
+}
+
+
+/* ==========================================
+   RESPONSIVE BREAKPOINTS FOR SCROLLYTELLING
+   ========================================== */
+@media (max-width: 768px) {
+  .scrolly-section-wrapper {
+    height: 250vh; /* Reduced pinning height on mobile for snappy scrolling */
+  }
+
+  .scrolly-stage {
+    width: 95%;
+    padding: 0 0.5rem;
+  }
+
+  .glass-hud {
+    padding: 1.4rem;
+  }
+
+  .hud-header h3 {
+    font-size: 1.3rem;
+  }
+
+  .scrolly-stats-flex {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.8rem;
+  }
+
+  .scrolly-cta-row {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .scrolly-cta-row .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ==========================================
+   GATE OPENING ANIMATION OVERLAY
+   ========================================== */
+.gate-overlay-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10000;
+  pointer-events: all;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gate-panel {
+  position: absolute;
+  top: 0;
+  width: 50vw;
+  height: 100vh;
+  background: radial-gradient(circle at center, #0d1526 0%, #030712 100%);
+  transition: transform 0.05s linear;
+  will-change: transform;
+}
+
+.gate-panel-left {
+  left: 0;
+  border-right: 2px solid rgba(0, 240, 255, 0.5);
+  box-shadow: 15px 0 40px rgba(0, 0, 0, 0.85);
+}
+
+.gate-panel-right {
+  right: 0;
+  border-left: 2px solid rgba(0, 240, 255, 0.5);
+  box-shadow: -15px 0 40px rgba(0, 0, 0, 0.85);
+}
+
+.gate-emblem-center {
+  position: absolute;
+  z-index: 10001;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  transition: opacity 0.05s linear, transform 0.05s linear;
+}
+
+.gate-emblem-ring {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 3px solid var(--accent-cyan);
+  background: rgba(9, 13, 22, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  color: var(--accent-cyan);
+  box-shadow: 0 0 35px var(--accent-cyan), inset 0 0 15px var(--accent-cyan);
+  animation: emblemPulse 2s infinite ease-in-out;
+}
+
+@keyframes emblemPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 30px var(--accent-cyan); }
+  50% { transform: scale(1.08); box-shadow: 0 0 50px var(--accent-cyan); }
+}
+
+.gate-text {
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: 10px;
+  color: #ffffff;
+  font-family: 'Outfit', sans-serif;
+  text-shadow: 0 0 20px var(--accent-cyan);
+}
+
+.gate-scroll-indicator {
+  position: relative;
+  bottom: auto;
+  left: auto;
+  transform: none;
+  margin-top: 1.5rem;
+  color: #ffffff !important;
+  font-weight: 700;
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
+}
+
+.gate-scroll-indicator span {
+  color: #ffffff !important;
+  letter-spacing: 5px;
+}
+
+/* Open Gate States */
+.gate-overlay-wrapper.open .gate-panel-left {
+  transform: translateX(-100%);
+}
+
+.gate-overlay-wrapper.open .gate-panel-right {
+  transform: translateX(100%);
+}
+
+.gate-overlay-wrapper.open .gate-emblem-center {
+  opacity: 0;
+  transform: scale(1.3);
+  pointer-events: none;
+}
+
+.gate-overlay-wrapper.done {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+/* Sentence-by-sentence scroll scrubbing elements */
+.hero-sentence {
+  opacity: 0.15;
+  transform: translateY(30px) scale(0.97);
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.hero-sentence.revealed {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* Feature Badge item-by-item scroll scrubbing elements */
+.arch-item {
+  opacity: 0.12;
+  transform: translateY(28px) scale(0.97);
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.arch-item.revealed {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+

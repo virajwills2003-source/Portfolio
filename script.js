@@ -6,6 +6,330 @@
 document.addEventListener('DOMContentLoaded', () => {
 
   /* ==========================================
+     0. LENIS SMOOTH SCROLLING & GSAP INTEGRATION
+     ========================================== */
+  let lenis = null;
+
+  if (typeof Lenis !== 'undefined') {
+    lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      smoothTouch: false
+    });
+
+    if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+      gsap.registerPlugin(ScrollTrigger);
+
+      // Sync Lenis scroll updates with ScrollTrigger
+      lenis.on('scroll', () => ScrollTrigger.update());
+
+      // Drive Lenis inside GSAP ticker for 60fps frame sync
+      gsap.ticker.add((time) => {
+        lenis.raf(time * 1000);
+      });
+
+      // Disable lag smoothing to keep scrolling instant & fluid
+      gsap.ticker.lagSmoothing(0);
+    } else {
+      function raf(time) {
+        lenis.raf(time);
+        requestAnimationFrame(raf);
+      }
+      requestAnimationFrame(raf);
+    }
+  }
+
+
+  /* ==========================================
+     SCROLLYTELLING CANVAS & SCRUBBER ENGINE
+     ========================================== */
+  const scrollyWrapper = document.querySelector('.scrolly-section-wrapper');
+  const scrollyCanvas = document.getElementById('scrollyCanvas');
+  const scrubberProgress = document.getElementById('scrubberProgress');
+
+  if (scrollyCanvas && scrollyWrapper && typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+    const ctx = scrollyCanvas.getContext('2d');
+    let width = 0;
+    let height = 0;
+    let dpr = window.devicePixelRatio || 1;
+
+    // Canvas resize handler
+    function resizeCanvas() {
+      width = scrollyCanvas.parentElement.clientWidth;
+      height = scrollyCanvas.parentElement.clientHeight;
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      scrollyCanvas.width = width * dpr;
+      scrollyCanvas.height = height * dpr;
+      ctx.scale(dpr, dpr);
+    }
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Particle Matrix Data
+    const numParticles = 75;
+    const particles = [];
+    for (let i = 0; i < numParticles; i++) {
+      particles.push({
+        x: (Math.random() - 0.5) * 1000,
+        y: (Math.random() - 0.5) * 1000,
+        z: Math.random() * 1000,
+        size: Math.random() * 2.5 + 1,
+        color: i % 3 === 0 ? '#00f0ff' : i % 3 === 1 ? '#8a2be2' : '#3b82f6'
+      });
+    }
+
+    // Canvas Render Function bound to scroll progress [0.0 - 1.0]
+    function renderScrollyCanvas(progress) {
+      ctx.clearRect(0, 0, width, height);
+
+      const centerX = width / 2;
+      const centerY = height / 2;
+
+      // 1. Dynamic Mesh Grid Perspective Lines
+      const gridOffset = (progress * 400) % 40;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.07)';
+      ctx.lineWidth = 1;
+
+      // Perspective Grid Lines
+      const gridRows = 16;
+      for (let i = -gridRows; i <= gridRows; i++) {
+        const xProj = centerX + i * 45;
+        ctx.beginPath();
+        ctx.moveTo(xProj, 0);
+        ctx.lineTo(centerX + i * 140, height);
+        ctx.stroke();
+      }
+
+      // Horizontal Moving Perspective Lines
+      for (let y = 0; y < height; y += 35) {
+        const currY = (y + gridOffset) % height;
+        ctx.beginPath();
+        ctx.moveTo(0, currY);
+        ctx.lineTo(width, currY);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // 2. Futuristic 3D Orbit Ring Telemetry Core
+      ctx.save();
+      ctx.translate(centerX, centerY);
+
+      // Scrubbed rotation and scale
+      const rotationAngle = progress * Math.PI * 4;
+      const coreScale = 0.85 + Math.sin(progress * Math.PI) * 0.35;
+
+      // Outer HUD Ring
+      ctx.save();
+      ctx.rotate(rotationAngle * 0.3);
+      ctx.scale(coreScale, coreScale);
+      ctx.beginPath();
+      ctx.arc(0, 0, 180, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([15, 10, 5, 10]);
+      ctx.stroke();
+      ctx.restore();
+
+      // Middle Counter-Rotating Tech Ring
+      ctx.save();
+      ctx.rotate(-rotationAngle * 0.6);
+      ctx.scale(coreScale, coreScale);
+      ctx.beginPath();
+      ctx.arc(0, 0, 130, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(138, 43, 226, 0.35)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([40, 20, 10, 20]);
+      ctx.stroke();
+      ctx.restore();
+
+      // Inner Glowing Core Node
+      ctx.save();
+      ctx.scale(coreScale, coreScale);
+      const gradient = ctx.createRadialGradient(0, 0, 10, 0, 0, 80);
+      gradient.addColorStop(0, 'rgba(0, 240, 255, 0.8)');
+      gradient.addColorStop(0.5, 'rgba(138, 43, 226, 0.4)');
+      gradient.addColorStop(1, 'rgba(0, 240, 255, 0)');
+      
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(0, 0, 80, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Center Core Pulsing Dot
+      ctx.beginPath();
+      ctx.arc(0, 0, 8 + Math.sin(progress * 20) * 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#00f0ff';
+      ctx.shadowColor = '#00f0ff';
+      ctx.shadowBlur = 15;
+      ctx.fill();
+      ctx.restore();
+
+      ctx.restore();
+
+      // 3. Scrubbed 3D Particle Constellation Engine
+      ctx.save();
+      ctx.translate(centerX, centerY);
+
+      particles.forEach((p, idx) => {
+        const zPos = (p.z - progress * 800 + 1000) % 1000;
+        const scale = 300 / (300 + zPos);
+
+        const rot = rotationAngle * 0.2 + idx;
+        const projX = (p.x * Math.cos(rot) - p.y * Math.sin(rot)) * scale;
+        const projY = (p.x * Math.sin(rot) + p.y * Math.cos(rot)) * scale;
+
+        const particleAlpha = Math.min(1, Math.max(0.1, (1000 - zPos) / 1000));
+
+        ctx.beginPath();
+        ctx.arc(projX, projY, p.size * scale, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = particleAlpha;
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8 * scale;
+        ctx.fill();
+
+        // Matrix node linking lines
+        if (idx > 0 && idx % 4 === 0) {
+          const prev = particles[idx - 1];
+          const prevZ = (prev.z - progress * 800 + 1000) % 1000;
+          const prevScale = 300 / (300 + prevZ);
+          const prevX = (prev.x * Math.cos(rot) - prev.y * Math.sin(rot)) * prevScale;
+          const prevY = (prev.x * Math.sin(rot) + prev.y * Math.cos(rot)) * prevScale;
+
+          const dist = Math.hypot(projX - prevX, projY - prevY);
+          if (dist < 120) {
+            ctx.beginPath();
+            ctx.moveTo(projX, projY);
+            ctx.lineTo(prevX, prevY);
+            ctx.strokeStyle = `rgba(0, 240, 255, ${0.15 * (1 - dist / 120)})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+      });
+      ctx.restore();
+    }
+
+    // Initial render call
+    renderScrollyCanvas(0);
+
+    // 4. GSAP ScrollTrigger Sequence Scrubber Setup
+    const stages = [
+      document.getElementById('scrollyStage1'),
+      document.getElementById('scrollyStage2'),
+      document.getElementById('scrollyStage3'),
+      document.getElementById('scrollyStage4')
+    ];
+
+    function updateStageProgress(progress) {
+      if (scrubberProgress) {
+        scrubberProgress.style.width = `${progress * 100}%`;
+      }
+
+      // Render 60fps canvas graphics
+      renderScrollyCanvas(progress);
+
+      // Gate Opening Scroll Synchronization (Progress 0.0 -> 0.14)
+      const gateLeft = document.getElementById('gateLeft');
+      const gateRight = document.getElementById('gateRight');
+      const gateEmblem = document.getElementById('gateEmblem');
+      const gateOverlay = document.getElementById('gateOverlay');
+
+      if (gateLeft && gateRight && gateEmblem && gateOverlay) {
+        const gateProgress = Math.min(1, Math.max(0, progress / 0.14));
+        gateLeft.style.transform = `translateX(${-gateProgress * 100}%)`;
+        gateRight.style.transform = `translateX(${gateProgress * 100}%)`;
+        
+        gateEmblem.style.opacity = `${1 - gateProgress}`;
+        gateEmblem.style.transform = `scale(${1 + gateProgress * 0.35})`;
+
+        if (gateProgress >= 0.95) {
+          gateOverlay.style.pointerEvents = 'none';
+        } else {
+          gateOverlay.style.pointerEvents = 'all';
+        }
+      }
+
+      // Parallax Stage Threshold Transitions
+      let activeIndex = 0;
+      if (progress < 0.23) {
+        activeIndex = 0;
+      } else if (progress >= 0.23 && progress < 0.52) {
+        activeIndex = 1;
+      } else if (progress >= 0.52 && progress < 0.78) {
+        activeIndex = 2;
+      } else {
+        activeIndex = 3;
+      }
+
+      stages.forEach((stage, idx) => {
+        if (stage) {
+          if (idx === activeIndex) {
+            stage.classList.add('active');
+          } else {
+            stage.classList.remove('active');
+          }
+        }
+      });
+
+      // 1. Stage 2 Sentence-by-Sentence scroll reveal (Continuous calculation for reverse scroll support)
+      const stage2Progress = Math.min(1, Math.max(0, (progress - 0.23) / (0.52 - 0.23)));
+      const sentenceElements = document.querySelectorAll('#scrollyStage2 .hero-sentence');
+      sentenceElements.forEach((el, index) => {
+        const threshold = index * 0.15;
+        if (stage2Progress >= threshold && activeIndex >= 1) {
+          el.classList.add('revealed');
+        } else {
+          el.classList.remove('revealed');
+        }
+      });
+
+      // 2. Stage 3 Skill Meters progress fill (Continuous calculation for reverse scroll support)
+      const stage3Progress = Math.min(1, Math.max(0, (progress - 0.52) / (0.78 - 0.52)));
+      const skillItems = document.querySelectorAll('.scrolly-skill-item');
+      skillItems.forEach(item => {
+        const targetVal = parseInt(item.getAttribute('data-target'), 10) || 0;
+        const currentVal = activeIndex >= 2 ? Math.round(targetVal * Math.min(1, stage3Progress * 1.25)) : 0;
+        
+        const fill = item.querySelector('.scrolly-progress-fill');
+        const valText = item.querySelector('.skill-val');
+
+        if (fill) fill.style.width = `${currentVal}%`;
+        if (valText) valText.textContent = `${currentVal}%`;
+      });
+
+      // 3. Stage 4 Feature Badges scroll reveal (Continuous calculation for reverse scroll support)
+      const stage4Progress = Math.min(1, Math.max(0, (progress - 0.78) / (1.0 - 0.78)));
+      const archElements = document.querySelectorAll('#scrollyStage4 .arch-item');
+      archElements.forEach((el, index) => {
+        const threshold = index * 0.22;
+        if (stage4Progress >= threshold && activeIndex === 3) {
+          el.classList.add('revealed');
+        } else {
+          el.classList.remove('revealed');
+        }
+      });
+    }
+
+    // Pinning ScrollTrigger Timeline
+    ScrollTrigger.create({
+      trigger: scrollyWrapper,
+      start: "top top",
+      end: "+=250%",
+      pin: ".scrolly-sticky-viewport",
+      scrub: 0.6,
+      onUpdate: (self) => {
+        updateStageProgress(self.progress);
+      }
+    });
+  }
+
+
+  /* ==========================================
      1. DYNAMIC TYPING EFFECT
      ========================================== */
   const typingElement = document.getElementById('typingText');
@@ -142,24 +466,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   /* ==========================================
-     4. SCROLL REVEAL ANIMATION (IntersectionObserver)
+     4. GSAP SCROLLTRIGGER REVEAL ANIMATIONS FOR ALL SECTIONS
      ========================================== */
-  const revealElements = document.querySelectorAll('.reveal-up, .reveal-fade, .reveal-left, .reveal-right');
+  if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+    const allRevealTargets = document.querySelectorAll('.section-header, .about-card, .skill-card, .project-card, .net-card, .edu-card, .contact-card, .reveal-up, .reveal-left, .reveal-right');
 
-  const revealObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('reveal-active');
-      } else {
-        entry.target.classList.remove('reveal-active');
-      }
+    allRevealTargets.forEach(el => {
+      gsap.fromTo(el, 
+        { 
+          opacity: 0, 
+          y: 45,
+          scale: 0.98 
+        }, 
+        {
+          opacity: 1, 
+          y: 0, 
+          scale: 1,
+          duration: 0.85,
+          ease: "power2.out",
+          scrollTrigger: {
+            trigger: el,
+            start: "top 88%",
+            toggleActions: "play none none reverse"
+          }
+        }
+      );
     });
-  }, {
-    threshold: 0.12,
-    rootMargin: '0px 0px -40px 0px'
-  });
-
-  revealElements.forEach(el => revealObserver.observe(el));
+  } else {
+    const revealElements = document.querySelectorAll('.reveal-up, .reveal-fade, .reveal-left, .reveal-right');
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('reveal-active');
+        } else {
+          entry.target.classList.remove('reveal-active');
+        }
+      });
+    }, {
+      threshold: 0.12,
+      rootMargin: '0px 0px -40px 0px'
+    });
+    revealElements.forEach(el => revealObserver.observe(el));
+  }
 
 
   /* ==========================================
@@ -245,106 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  /* ==========================================
-     7. PROFILE PHOTO UPLOADER & CANVAS JPG COMPRESSOR
-     ========================================== */
-  const imageUploadInput = document.getElementById('imageUploadInput');
-  const profileImageDisplay = document.getElementById('profileImageDisplay');
-  const defaultAvatarIcon = document.getElementById('defaultAvatarIcon');
-  const resetAvatarBtn = document.getElementById('resetAvatarBtn');
-  const uploadStatusInfo = document.getElementById('uploadStatusInfo');
 
-  // Load saved photo from localStorage if present
-  const savedPhoto = localStorage.getItem('viraj_portfolio_avatar_jpg');
-  if (savedPhoto && profileImageDisplay) {
-    profileImageDisplay.src = savedPhoto;
-    profileImageDisplay.style.display = 'block';
-    if (defaultAvatarIcon) defaultAvatarIcon.style.display = 'none';
-    if (resetAvatarBtn) resetAvatarBtn.style.display = 'inline-flex';
-    if (uploadStatusInfo) {
-      uploadStatusInfo.className = 'upload-status-info success';
-      uploadStatusInfo.innerHTML = '<i class="fa-solid fa-circle-check"></i> Profile photo loaded (Compressed 500×500 JPG)';
-    }
-  }
-
-  // Handle Photo Upload & Canvas Compression
-  if (imageUploadInput) {
-    imageUploadInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      if (!file.type.startsWith('image/')) {
-        alert('Please select a valid image file (JPG/PNG).');
-        return;
-      }
-
-      uploadStatusInfo.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Resizing & Compressing image to standard 500×500 JPG...';
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          // Standard Resolution: 500x500 pixels
-          const targetWidth = 500;
-          const targetHeight = 500;
-          
-          const canvas = document.createElement('canvas');
-          canvas.width = targetWidth;
-          canvas.height = targetHeight;
-          const ctx = canvas.getContext('2d');
-
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-
-          // Crop center square to avoid stretching/distortion
-          const size = Math.min(img.width, img.height);
-          const startX = (img.width - size) / 2;
-          const startY = (img.height - size) / 2;
-
-          ctx.drawImage(img, startX, startY, size, size, 0, 0, targetWidth, targetHeight);
-
-          // Compress to JPG format with 0.85 quality factor
-          const compressedJpgDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-
-          // Update Display
-          profileImageDisplay.src = compressedJpgDataUrl;
-          profileImageDisplay.style.display = 'block';
-          if (defaultAvatarIcon) defaultAvatarIcon.style.display = 'none';
-          if (resetAvatarBtn) resetAvatarBtn.style.display = 'inline-flex';
-
-          // Store in LocalStorage
-          try {
-            localStorage.setItem('viraj_portfolio_avatar_jpg', compressedJpgDataUrl);
-          } catch (err) {
-            console.warn('LocalStorage quota exceeded for avatar', err);
-          }
-
-          // Calculate sizes
-          const origKb = (file.size / 1024).toFixed(1);
-          const compKb = (compressedJpgDataUrl.length * 0.75 / 1024).toFixed(1);
-
-          uploadStatusInfo.className = 'upload-status-info success';
-          uploadStatusInfo.innerHTML = `<i class="fa-solid fa-circle-check"></i> Compressed: ${origKb}KB ➔ <strong>${compKb}KB JPG</strong> (Standard 500×500)`;
-        };
-        img.src = event.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  // Reset Photo Handler
-  if (resetAvatarBtn) {
-    resetAvatarBtn.addEventListener('click', () => {
-      localStorage.removeItem('viraj_portfolio_avatar_jpg');
-      profileImageDisplay.src = '';
-      profileImageDisplay.style.display = 'none';
-      if (defaultAvatarIcon) defaultAvatarIcon.style.display = 'inline-block';
-      resetAvatarBtn.style.display = 'none';
-      if (imageUploadInput) imageUploadInput.value = '';
-      uploadStatusInfo.className = 'upload-status-info';
-      uploadStatusInfo.innerHTML = '<i class="fa-solid fa-compress"></i> Standard 500×500 JPG Resolution Auto-Compressor';
-    });
-  }
 
 
   /* ==========================================
