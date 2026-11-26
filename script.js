@@ -1,882 +1,2694 @@
 /**
- * DEVELOPER PORTFOLIO - J.H.P.W. VIRAJ
- * Optimized Interactive Logic, Sticky Scrollytelling & Low-RAM Mobile Engine
+ * J.H.P.W. VIRAJ — PORTFOLIO INTERACTION, COCKPIT STARFIELD INTRO & TRANSITION ENGINE
+ * Opening Intro: First-person spaceship cockpit flying through 3D stars -> Work (#/work)
+ * Hash Router (#/, #/work, #/about, #/notes, #/contact) with Destination-Driven Transitions:
+ *   -> Work        : 4-panel staggered vertical curtain (60ms apart)
+ *   -> About       : horizontal slide with parallax
+ *   -> Field notes : click-origin expanding clip-path circle reveal
+ *   -> Contact     : fade and scale (0.96 out -> 1.04 to 1 in)
+ * Uses View Transitions API with Web Animations API fallbacks + 150ms reduced-motion cross-fade.
  */
+
+/* Single config object for easy tuning of the monochrome warp intro & ambient starfield */
+const COCKPIT_INTRO_CONFIG = {
+  starCountDesktop: 900,
+  starCountMobile: 260,
+  starCountLowEnd: 160,
+  mobileBreakpoint: 768,
+  maxDpr: 2,
+  mobileMaxDpr: 1.25,
+  lowEndMaxDpr: 1,
+  ambientFpsLowEnd: 24,       // conserve CPU/battery on budget phones
+  maxDepth: 1600,
+  minDepth: 10,
+  focalLengthFactor: 0.72,
+  speedMultiplier: 1.5,       // 1.5x faster playback speed (+0.5 over base)
+  cruiseSpeed: 180,
+  maxWarpSpeed: 5000,
+  ambientSpeed: 36,
+  tCruiseEnd: 660,            // 0.00-0.66s (1000 / 1.5)
+  tAccelEnd: 2000,            // 0.66-2.00s (3000 / 1.5)
+  tWarpEnd: 2530,             // 2.00-2.53s (3800 / 1.5)
+  tHandoffEnd: 3060,          // 2.53-3.06s (4600 / 1.5)
+  steerRangeX: 0.14,
+  steerRangeY: 0.11,
+  steerSmoothing: 6.5,        // frame-rate-independent exponential smoothing
+  ambientOpacityDark: 0.34,
+  ambientOpacityLight: 0.24
+};
+
+/* Session-only JS flag (no localStorage) so intro plays once per page session */
+let hasPlayedIntro = false;
 
 document.addEventListener('DOMContentLoaded', () => {
   const root = document.documentElement;
-  const prefersReducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const mobileQuery = window.matchMedia('(max-width: 768px)');
-  const touchQuery = window.matchMedia('(hover: none) and (pointer: coarse)');
+  const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const desktopSplitQuery = window.matchMedia('(min-width: 1024px)');
+  const finePointerQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
+  const coarsePointerQuery = window.matchMedia('(pointer: coarse)');
 
-  function detectLowPerfMode() {
-    const lowMem = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
-    const lowCores = typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 4;
-    return prefersReducedMotionQuery.matches || lowMem || lowCores || (mobileQuery.matches && touchQuery.matches);
+  // Hardware & network tier detection for smooth 60fps UX on low-end mobile phones
+  const navConnection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const isSaveData = Boolean(navConnection && navConnection.saveData);
+  const isLowMemory = typeof navigator.deviceMemory === 'number' && navigator.deviceMemory <= 4;
+  const isLowCores = typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency <= 4;
+  const isLowEndDevice =
+    isSaveData || isLowMemory || (coarsePointerQuery.matches && isLowCores) || window.innerWidth <= 480;
+
+  if (isLowEndDevice) {
+    root.classList.add('low-end-device');
   }
 
-  let isLowPerf = detectLowPerfMode();
-  root.classList.toggle('low-perf-mode', isLowPerf);
+  let isScrollingMobile = false;
+  let mobileScrollIdleTimer = null;
+
+  const EASE_TRANSITION = 'cubic-bezier(0.76, 0, 0.24, 1)';
 
   /* ==========================================
-     1. STATE & CACHED REFERENCES
+     1. MOTION PREFERENCE & SIGNAL: LIVE TOGGLE
      ========================================== */
-  const scrollyWrapper = document.querySelector('.scrolly-section-wrapper');
-  const scrollyViewport = document.querySelector('.scrolly-sticky-viewport');
-  const scrollyCanvas = document.getElementById('scrollyCanvas');
-  const scrubberProgress = document.getElementById('scrubberProgress');
+  const motionToggle = document.getElementById('motionToggle');
+  const motionToggleLabel = document.getElementById('motionToggleLabel');
 
-  const gateOverlay = document.getElementById('gateOverlay');
-  const gateLeft = document.getElementById('gateLeft');
-  const gateRight = document.getElementById('gateRight');
-  const gateEmblem = document.getElementById('gateEmblem');
-
-  const stages = [
-    document.getElementById('scrollyStage1'),
-    document.getElementById('scrollyStage2'),
-    document.getElementById('scrollyStage3'),
-    document.getElementById('scrollyStage4')
-  ];
-  const sentenceElements = Array.from(document.querySelectorAll('#scrollyStage2 .hero-sentence'));
-  const archElements = Array.from(document.querySelectorAll('#scrollyStage4 .arch-item'));
-  const skillEntries = Array.from(document.querySelectorAll('.scrolly-skill-item')).map(item => ({
-    fill: item.querySelector('.scrolly-progress-fill'),
-    valText: item.querySelector('.skill-val'),
-    targetVal: parseInt(item.getAttribute('data-target'), 10) || 0,
-    lastVal: -1
-  }));
-
-  let isHeroInView = true;
-  let activeStageIndex = 0;
-
-  /* ==========================================
-     2. DYNAMIC TYPING EFFECT (PAUSES OFFSCREEN)
-     ========================================== */
-  const typingElement = document.getElementById('typingText');
-  const linesToType = [
-    'HND IT Student at SLIATE',
-    'Software & Web Developer',
-    'Java | PHP | JavaScript | SQL | C# | Laravel',
-    'Passionate about Database Management & Networking',
-    'Always Learning New Technologies!'
-  ];
-
-  let lineIndex = 0;
-  let charIndex = 0;
-  let isDeleting = false;
-  let typingTimerId = null;
-
-  function canRunTyping() {
-    return Boolean(
-      typingElement &&
-      !prefersReducedMotionQuery.matches &&
-      activeStageIndex === 0 &&
-      isHeroInView &&
-      !document.hidden
-    );
+  let userMotionPaused = false;
+  try {
+    userMotionPaused = localStorage.getItem('motionPaused') === 'true';
+  } catch (e) {
+    userMotionPaused = false;
   }
 
-  function stepTyping() {
-    typingTimerId = null;
-    if (!canRunTyping()) return;
+  function isMotionReduced() {
+    return reducedMotionQuery.matches || userMotionPaused;
+  }
 
-    const currentLine = linesToType[lineIndex];
-    let delay;
-
-    if (isDeleting) {
-      charIndex = Math.max(0, charIndex - 1);
-      typingElement.textContent = currentLine.substring(0, charIndex);
-      delay = 40;
+  function syncMotionState() {
+    const paused = isMotionReduced();
+    if (paused) {
+      root.setAttribute('data-motion', 'paused');
     } else {
-      charIndex = Math.min(currentLine.length, charIndex + 1);
-      typingElement.textContent = currentLine.substring(0, charIndex);
-      delay = 80;
+      root.removeAttribute('data-motion');
     }
-
-    if (!isDeleting && charIndex === currentLine.length) {
-      delay = 2000;
-      isDeleting = true;
-    } else if (isDeleting && charIndex === 0) {
-      isDeleting = false;
-      lineIndex = (lineIndex + 1) % linesToType.length;
-      delay = 500;
+    if (motionToggle) {
+      motionToggle.setAttribute('aria-pressed', paused ? 'true' : 'false');
     }
-
-    typingTimerId = setTimeout(stepTyping, delay);
+    if (motionToggleLabel) {
+      motionToggleLabel.textContent = paused ? 'SIGNAL: PAUSED' : 'SIGNAL: LIVE';
+    }
   }
 
-  function syncTypingState() {
-    if (!typingElement) return;
-    if (prefersReducedMotionQuery.matches) {
-      if (typingTimerId) {
-        clearTimeout(typingTimerId);
-        typingTimerId = null;
+  syncMotionState();
+
+  /* ==========================================
+     2. THEME SWITCHER WITH VIEW-TRANSITION WIPE
+     ========================================== */
+  const themeToggle = document.getElementById('themeToggle');
+  const themeColorMeta = document.getElementById('themeColorMeta');
+
+  function applyTheme(isLight) {
+    if (isLight) {
+      root.setAttribute('data-theme', 'light');
+      root.classList.add('light-theme');
+    } else {
+      root.removeAttribute('data-theme');
+      root.classList.remove('light-theme');
+    }
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute('content', isLight ? '#f5f5f5' : '#000000');
+    }
+    if (themeToggle) {
+      themeToggle.setAttribute('aria-pressed', isLight ? 'true' : 'false');
+      themeToggle.setAttribute('aria-label', isLight ? 'Switch to dark theme' : 'Switch to light theme');
+    }
+  }
+
+  applyTheme(root.getAttribute('data-theme') === 'light' || root.classList.contains('light-theme'));
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      root.classList.add('theme-ready');
+    });
+  });
+
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      if (isTransitioning) return;
+      const nextLight = root.getAttribute('data-theme') !== 'light';
+      const commit = () => {
+        applyTheme(nextLight);
+        try {
+          localStorage.setItem('theme', nextLight ? 'light' : 'dark');
+        } catch (e) {
+          /* ignore storage errors */
+        }
+        if (heroWireframe) heroWireframe.sync();
+        if (typeof syncAmbientStarfield === 'function') syncAmbientStarfield();
+      };
+
+      if (typeof document.startViewTransition === 'function' && !isMotionReduced()) {
+        root.setAttribute('data-theme-switching', 'true');
+        const vt = document.startViewTransition(commit);
+        vt.finished.finally(() => {
+          root.removeAttribute('data-theme-switching');
+        });
+      } else {
+        commit();
       }
-      typingElement.textContent = linesToType[0];
+    });
+  }
+
+  /* ==========================================
+     3. OPENING INTRO: COCKPIT VIEW FLYING THROUGH STARS + AMBIENT LAYER
+     Modular functions:
+       initStars(), updateStars(speed, dt), drawStars(...),
+       drawCockpit(state), runIntroTimeline(), endIntro(skipped)
+     ========================================== */
+  const cockpitIntro = document.getElementById('cockpitIntro');
+  const cockpitCanvas = document.getElementById('cockpitCanvas');
+  const cockpitFrameLayer = document.getElementById('cockpitFrameLayer');
+  const cockpitStatusText = document.getElementById('cockpitStatusText');
+  const cockpitSpeedVal = document.getElementById('cockpitSpeedVal');
+  const cockpitThrottlePct = document.getElementById('cockpitThrottlePct');
+  const cockpitThrottleFill = document.getElementById('cockpitThrottleFill');
+  const cockpitVectorText = document.getElementById('cockpitVectorText');
+  const cockpitDestText = document.getElementById('cockpitDestText');
+  const cockpitSkipBtn = document.getElementById('cockpitSkipBtn');
+  const ambientStarCanvas = document.getElementById('ambientStarCanvas');
+
+  const cockpitCtx = cockpitCanvas ? cockpitCanvas.getContext('2d', { alpha: true }) : null;
+  const ambientCtx = ambientStarCanvas ? ambientStarCanvas.getContext('2d', { alpha: true }) : null;
+
+  // Pre-allocated starfield buffers + 6-band batched draw arrays (zero per-frame allocations)
+  const DEPTH_BANDS = 6;
+  let starCount = 0;
+  let starX = null;
+  let starY = null;
+  let starZ = null;
+  let starPrevSX = null;
+  let starPrevSY = null;
+  let starHasPrev = null;
+  let starTone = null;
+  let bandLines = null; // 6 Float32Arrays of [px, py, sx, sy] for batched canvas strokes
+  let bandLineCounts = new Int32Array(DEPTH_BANDS);
+  let bandDots = null;  // 6 Float32Arrays of [sx, sy] for batched dot fills
+  let bandDotCounts = new Int32Array(DEPTH_BANDS);
+
+  // Pre-baked monochrome luminance per depth band (far dim -> near crisp)
+  const BAND_ALPHA = [0.16, 0.28, 0.44, 0.62, 0.80, 0.96];
+  const BAND_WIDTH_INTRO = [0.75, 1.0, 1.3, 1.65, 2.05, 2.55];
+  const BAND_WIDTH_AMBIENT = [0.8, 0.95, 1.15, 1.35, 1.6, 1.85];
+
+  let cachedBgGrad = null;
+  let cachedBgThemeLight = null;
+  let cachedBgW = 0;
+  let cachedBgH = 0;
+
+  function smootherstep(edge0, edge1, x) {
+    const t = Math.max(0, Math.min(1, (x - edge0) / Math.max(1, edge1 - edge0)));
+    return t * t * t * (t * (t * 6 - 15) + 10);
+  }
+
+  let viewW = Math.max(1, window.innerWidth);
+  let viewH = Math.max(1, window.innerHeight);
+  let viewDpr = Math.min(window.devicePixelRatio || 1, COCKPIT_INTRO_CONFIG.maxDpr);
+  let focalLength = Math.min(viewW, viewH) * COCKPIT_INTRO_CONFIG.focalLengthFactor;
+
+  let targetSteerX = 0;
+  let targetSteerY = 0;
+  let steerX = 0;
+  let steerY = 0;
+  let currentVpX = viewW * 0.5;
+  let currentVpY = viewH * 0.5;
+
+  let isIntroPlaying = false;
+  let introEnded = false;
+  let introRafId = null;
+  let ambientRafId = null;
+  let lastAmbientTime = 0;
+  let landingRouteTarget = 'home';
+  let handoffTriggered = false;
+
+  // Cached HUD text to skip redundant DOM writes
+  let lastHudStatus = '';
+  let lastHudSpeed = '';
+  let lastHudPct = '';
+  let lastHudVector = '';
+
+  function resizeStarCanvas(canvas, ctx) {
+    if (!canvas || !ctx) return;
+    canvas.width = Math.max(1, Math.floor(viewW * viewDpr));
+    canvas.height = Math.max(1, Math.floor(viewH * viewDpr));
+    ctx.setTransform(viewDpr, 0, 0, viewDpr, 0, 0);
+  }
+
+  function syncStarViewport() {
+    viewW = Math.max(1, window.innerWidth);
+    viewH = Math.max(1, window.innerHeight);
+    const dprCap = isLowEndDevice
+      ? COCKPIT_INTRO_CONFIG.lowEndMaxDpr
+      : viewW <= COCKPIT_INTRO_CONFIG.mobileBreakpoint
+        ? COCKPIT_INTRO_CONFIG.mobileMaxDpr
+        : COCKPIT_INTRO_CONFIG.maxDpr;
+    viewDpr = Math.min(window.devicePixelRatio || 1, dprCap);
+    focalLength = Math.min(viewW, viewH) * COCKPIT_INTRO_CONFIG.focalLengthFactor;
+    cachedBgGrad = null;
+    if (isIntroPlaying) resizeStarCanvas(cockpitCanvas, cockpitCtx);
+    resizeStarCanvas(ambientStarCanvas, ambientCtx);
+  }
+
+  function spawnStarAt(i, randomDepth) {
+    const spreadX = Math.max(viewW, 1280) * 1.15;
+    const spreadY = Math.max(viewH, 800) * 1.15;
+    let sx = (Math.random() * 2 - 1) * spreadX;
+    let sy = (Math.random() * 2 - 1) * spreadY;
+    // Keep a subtle clear corridor right at exact dead-center
+    if (Math.abs(sx) < 18 && Math.abs(sy) < 18) {
+      sx += sx >= 0 ? 22 : -22;
+    }
+    starX[i] = sx;
+    starY[i] = sy;
+    starZ[i] = randomDepth
+      ? COCKPIT_INTRO_CONFIG.minDepth + Math.random() * (COCKPIT_INTRO_CONFIG.maxDepth - COCKPIT_INTRO_CONFIG.minDepth)
+      : COCKPIT_INTRO_CONFIG.maxDepth * (0.86 + Math.random() * 0.14);
+    starHasPrev[i] = 0;
+  }
+
+  function initStars() {
+    const isMobile = window.innerWidth <= COCKPIT_INTRO_CONFIG.mobileBreakpoint;
+    starCount = isLowEndDevice
+      ? COCKPIT_INTRO_CONFIG.starCountLowEnd
+      : isMobile
+        ? COCKPIT_INTRO_CONFIG.starCountMobile
+        : COCKPIT_INTRO_CONFIG.starCountDesktop;
+
+    starX = new Float32Array(starCount);
+    starY = new Float32Array(starCount);
+    starZ = new Float32Array(starCount);
+    starPrevSX = new Float32Array(starCount);
+    starPrevSY = new Float32Array(starCount);
+    starHasPrev = new Uint8Array(starCount);
+    starTone = new Float32Array(starCount);
+
+    bandLines = new Array(DEPTH_BANDS);
+    bandDots = new Array(DEPTH_BANDS);
+    for (let b = 0; b < DEPTH_BANDS; b++) {
+      bandLines[b] = new Float32Array(starCount * 4);
+      bandDots[b] = new Float32Array(starCount * 2);
+    }
+
+    for (let i = 0; i < starCount; i++) {
+      spawnStarAt(i, true);
+      starTone[i] = 0.65 + Math.random() * 0.35;
+    }
+    syncStarViewport();
+  }
+
+  function updateStars(speed, dt) {
+    if (!starZ) return;
+    const clampedDt = Math.max(0.001, Math.min(dt, 0.033));
+    const dz = speed * clampedDt;
+
+    // Frame-rate-independent exponential smoothing for silky steering on 60/120/144Hz displays
+    const steerBlend = 1 - Math.exp(-COCKPIT_INTRO_CONFIG.steerSmoothing * clampedDt);
+    steerX += (targetSteerX - steerX) * steerBlend;
+    steerY += (targetSteerY - steerY) * steerBlend;
+    currentVpX = viewW * 0.5 + steerX * viewW * COCKPIT_INTRO_CONFIG.steerRangeX;
+    currentVpY = viewH * 0.5 + steerY * viewH * COCKPIT_INTRO_CONFIG.steerRangeY;
+
+    const minZ = COCKPIT_INTRO_CONFIG.minDepth;
+    const margin = 120;
+
+    for (let i = 0; i < starCount; i++) {
+      const prevZ = starZ[i];
+      starPrevSX[i] = (starX[i] / prevZ) * focalLength + currentVpX;
+      starPrevSY[i] = (starY[i] / prevZ) * focalLength + currentVpY;
+      starHasPrev[i] = 1;
+
+      const nextZ = prevZ - dz;
+      if (nextZ <= minZ) {
+        spawnStarAt(i, false);
+        continue;
+      }
+
+      const projX = (starX[i] / nextZ) * focalLength + currentVpX;
+      const projY = (starY[i] / nextZ) * focalLength + currentVpY;
+
+      if (projX < -margin || projX > viewW + margin || projY < -margin || projY > viewH + margin) {
+        spawnStarAt(i, false);
+        continue;
+      }
+
+      starZ[i] = nextZ;
+    }
+  }
+
+  function drawStars(ctx, options) {
+    if (!ctx || !starZ || !bandLines) return;
+    const {
+      speed,
+      backdropAlpha,
+      starOpacity,
+      warpStreakBoost,
+      flashAlpha,
+      isAmbient
+    } = options;
+
+    ctx.clearRect(0, 0, viewW, viewH);
+
+    const vpX = currentVpX;
+    const vpY = currentVpY;
+    const isLight = root.getAttribute('data-theme') === 'light' || root.classList.contains('light-theme');
+
+    // Cached pure monochrome theme-matched radial backdrop (zero per-frame gradient allocations)
+    if (!isAmbient && backdropAlpha > 0.004) {
+      if (!cachedBgGrad || cachedBgThemeLight !== isLight || cachedBgW !== viewW || cachedBgH !== viewH) {
+        const cx = viewW * 0.5;
+        const cy = viewH * 0.5;
+        const gradRadius = Math.max(viewW, viewH) * 0.85;
+        cachedBgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, gradRadius);
+        if (isLight) {
+          cachedBgGrad.addColorStop(0, '#ebebeb');
+          cachedBgGrad.addColorStop(0.55, '#f1f1f1');
+          cachedBgGrad.addColorStop(1, '#f5f5f5');
+        } else {
+          cachedBgGrad.addColorStop(0, '#0e0e0e');
+          cachedBgGrad.addColorStop(0.55, '#050505');
+          cachedBgGrad.addColorStop(1, '#000000');
+        }
+        cachedBgThemeLight = isLight;
+        cachedBgW = viewW;
+        cachedBgH = viewH;
+      }
+      ctx.globalAlpha = backdropAlpha;
+      ctx.fillStyle = cachedBgGrad;
+      ctx.fillRect(0, 0, viewW, viewH);
+    }
+
+    // Reset 6-band batch counters
+    for (let b = 0; b < DEPTH_BANDS; b++) {
+      bandLineCounts[b] = 0;
+      bandDotCounts[b] = 0;
+    }
+
+    const maxZ = COCKPIT_INTRO_CONFIG.maxDepth;
+    const invMaxZ = 1 / maxZ;
+    const exposureDz = isAmbient ? 0 : speed * (0.026 + (warpStreakBoost || 0) * 0.044);
+    const farThreshold = maxZ * 0.86;
+    const invFarSpan = 1 / (maxZ * 0.14);
+
+    // Bin all stars into 6 depth/luminance bands (1 pass, zero allocations)
+    for (let i = 0; i < starCount; i++) {
+      const z = starZ[i];
+      const invZ = focalLength / z;
+      const sx = starX[i] * invZ + vpX;
+      const sy = starY[i] * invZ + vpY;
+
+      if (sx < -40 || sx > viewW + 40 || sy < -40 || sy > viewH + 40) continue;
+
+      const closeness = 1 - z * invMaxZ;
+      if (closeness <= 0) continue;
+
+      const farFade = z > farThreshold ? (maxZ - z) * invFarSpan : 1;
+      const lum = closeness * starTone[i] * farFade;
+      if (lum < 0.03) continue;
+
+      const band = Math.min(DEPTH_BANDS - 1, Math.floor(lum * DEPTH_BANDS));
+
+      let px = starPrevSX[i];
+      let py = starPrevSY[i];
+      if (exposureDz > 0.5) {
+        const invTailZ = focalLength / (z + exposureDz);
+        px = starX[i] * invTailZ + vpX;
+        py = starY[i] * invTailZ + vpY;
+      }
+
+      const dx = sx - px;
+      const dy = sy - py;
+
+      if (isAmbient || dx * dx + dy * dy < 2.2) {
+        const idx = bandDotCounts[band];
+        const arr = bandDots[band];
+        arr[idx] = sx;
+        arr[idx + 1] = sy;
+        bandDotCounts[band] = idx + 2;
+      } else {
+        const idx = bandLineCounts[band];
+        const arr = bandLines[band];
+        arr[idx] = px;
+        arr[idx + 1] = py;
+        arr[idx + 2] = sx;
+        arr[idx + 3] = sy;
+        bandLineCounts[band] = idx + 4;
+      }
+    }
+
+    // Flush batched monochrome stars (max 6 stroke calls + 6 dot batches total per frame!)
+    const inkColor = isLight ? '#141414' : '#ffffff';
+    const widths = isAmbient ? BAND_WIDTH_AMBIENT : BAND_WIDTH_INTRO;
+    const warpWidthScale = isAmbient ? 1 : 1 + (warpStreakBoost || 0) * 0.25;
+
+    ctx.fillStyle = inkColor;
+    ctx.strokeStyle = inkColor;
+    ctx.lineCap = 'round';
+
+    for (let b = 0; b < DEPTH_BANDS; b++) {
+      const alpha = BAND_ALPHA[b] * starOpacity;
+      if (alpha < 0.015) continue;
+
+      const dotLen = bandDotCounts[b];
+      if (dotLen > 0) {
+        ctx.globalAlpha = alpha;
+        const size = widths[b];
+        const half = size * 0.5;
+        const arr = bandDots[b];
+        for (let j = 0; j < dotLen; j += 2) {
+          ctx.fillRect(arr[j] - half, arr[j + 1] - half, size, size);
+        }
+      }
+
+      const lineLen = bandLineCounts[b];
+      if (lineLen > 0) {
+        ctx.globalAlpha = alpha;
+        ctx.lineWidth = widths[b] * warpWidthScale;
+        ctx.beginPath();
+        const arr = bandLines[b];
+        for (let j = 0; j < lineLen; j += 4) {
+          ctx.moveTo(arr[j], arr[j + 1]);
+          ctx.lineTo(arr[j + 2], arr[j + 3]);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // Center monochrome warp flash expanding smoothly from the vanishing point
+    if (!isAmbient && flashAlpha > 0.004) {
+      ctx.globalAlpha = 1;
+      const maxR = Math.hypot(Math.max(vpX, viewW - vpX), Math.max(vpY, viewH - vpY)) * 1.15;
+      const r = Math.max(40, maxR * Math.min(1, 0.2 + flashAlpha * 1.1));
+      const flashGrad = ctx.createRadialGradient(vpX, vpY, 0, vpX, vpY, r);
+      const coreA = Math.min(1, flashAlpha * 1.2);
+      const midA = Math.min(1, flashAlpha * 0.9);
+      const edgeA = Math.min(1, Math.max(0, (flashAlpha - 0.32) * 1.48));
+      if (isLight) {
+        flashGrad.addColorStop(0, `rgba(255,255,255,${coreA.toFixed(3)})`);
+        flashGrad.addColorStop(0.48, `rgba(248,248,248,${midA.toFixed(3)})`);
+        flashGrad.addColorStop(1, `rgba(245,245,245,${edgeA.toFixed(3)})`);
+      } else {
+        flashGrad.addColorStop(0, `rgba(255,255,255,${coreA.toFixed(3)})`);
+        flashGrad.addColorStop(0.48, `rgba(242,242,242,${midA.toFixed(3)})`);
+        flashGrad.addColorStop(1, `rgba(255,255,255,${edgeA.toFixed(3)})`);
+      }
+      ctx.fillStyle = flashGrad;
+      ctx.fillRect(0, 0, viewW, viewH);
+    }
+
+    ctx.globalAlpha = 1;
+  }
+
+  function drawCockpit(state) {
+    if (!cockpitFrameLayer) return;
+    const { frameOpacity, speedRatio, loadProgress, statusLabel } = state;
+
+    cockpitFrameLayer.style.opacity = frameOpacity.toFixed(3);
+
+    if (cockpitStatusText && statusLabel !== lastHudStatus) {
+      lastHudStatus = statusLabel;
+      cockpitStatusText.textContent = statusLabel;
+    }
+
+    const cSpeed = (speedRatio * 0.9).toFixed(2) + 'c';
+    if (cockpitSpeedVal && cSpeed !== lastHudSpeed) {
+      lastHudSpeed = cSpeed;
+      cockpitSpeedVal.textContent = cSpeed;
+    }
+
+    const clampedLoad = Math.max(0, Math.min(1, loadProgress));
+    const pctNum = Math.round(clampedLoad * 100);
+    const pctStr = `${String(pctNum).padStart(3, '0')} / 100`;
+    if (cockpitThrottlePct && pctStr !== lastHudPct) {
+      lastHudPct = pctStr;
+      cockpitThrottlePct.textContent = pctStr;
+    }
+
+    if (cockpitThrottleFill) {
+      cockpitThrottleFill.style.transform = `scaleX(${clampedLoad.toFixed(4)})`;
+    }
+
+    const hdgX = Math.round(steerX * 24);
+    const hdgY = Math.round(steerY * 18);
+    const vecStr = `HDG ${hdgX >= 0 ? '+' : ''}${String(hdgX).padStart(2, '0')} / ${hdgY >= 0 ? '+' : ''}${String(hdgY).padStart(2, '0')}`;
+    if (cockpitVectorText && vecStr !== lastHudVector) {
+      lastHudVector = vecStr;
+      cockpitVectorText.textContent = vecStr;
+    }
+  }
+
+  function handleSteerPointer(e) {
+    if (e.pointerType && e.pointerType !== 'mouse') return;
+    targetSteerX = Math.max(-1, Math.min(1, (e.clientX / Math.max(1, viewW) - 0.5) * 2));
+    targetSteerY = Math.max(-1, Math.min(1, (e.clientY / Math.max(1, viewH) - 0.5) * 2));
+  }
+
+  function handleSteerOrientation(e) {
+    if (typeof e.gamma !== 'number' || typeof e.beta !== 'number') return;
+    targetSteerX = Math.max(-1, Math.min(1, e.gamma / 30));
+    targetSteerY = Math.max(-1, Math.min(1, (e.beta - 45) / 30));
+  }
+
+  function handleIntroSkipKey(e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      endIntro(true);
+    }
+  }
+
+  function handleIntroSkipClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    endIntro(true);
+  }
+
+  const AMBIENT_MIN_FRAME_MS = isLowEndDevice ? 1000 / COCKPIT_INTRO_CONFIG.ambientFpsLowEnd : 0;
+
+  function ambientLoop(now) {
+    if (isMotionReduced() || isIntroPlaying || document.hidden) {
+      ambientRafId = null;
       return;
     }
-    if (canRunTyping()) {
-      if (!typingTimerId) {
-        typingTimerId = setTimeout(stepTyping, 250);
+
+    // Yield GPU/compositor cleanly during touch scroll or page transition on low-end phones
+    if (isLowEndDevice && (isScrollingMobile || isTransitioning)) {
+      lastAmbientTime = now;
+      ambientRafId = requestAnimationFrame(ambientLoop);
+      return;
+    }
+
+    const elapsedMs = lastAmbientTime ? now - lastAmbientTime : 16;
+    if (AMBIENT_MIN_FRAME_MS > 0 && elapsedMs < AMBIENT_MIN_FRAME_MS) {
+      ambientRafId = requestAnimationFrame(ambientLoop);
+      return;
+    }
+
+    const dt = elapsedMs / 1000;
+    lastAmbientTime = now;
+
+    updateStars(COCKPIT_INTRO_CONFIG.ambientSpeed, dt);
+    const isLight = root.getAttribute('data-theme') === 'light' || root.classList.contains('light-theme');
+    drawStars(ambientCtx, {
+      speed: COCKPIT_INTRO_CONFIG.ambientSpeed,
+      backdropAlpha: 0,
+      starOpacity: isLight ? COCKPIT_INTRO_CONFIG.ambientOpacityLight : COCKPIT_INTRO_CONFIG.ambientOpacityDark,
+      warpStreakBoost: 0,
+      flashAlpha: 0,
+      isAmbient: true
+    });
+    ambientRafId = requestAnimationFrame(ambientLoop);
+  }
+
+  function syncAmbientStarfield() {
+    if (!ambientStarCanvas || !ambientCtx) return;
+    if (isMotionReduced() || isIntroPlaying || document.hidden) {
+      if (ambientRafId) {
+        cancelAnimationFrame(ambientRafId);
+        ambientRafId = null;
       }
-    } else if (typingTimerId) {
-      clearTimeout(typingTimerId);
-      typingTimerId = null;
+      if (isMotionReduced()) {
+        ambientStarCanvas.classList.remove('is-active');
+        ambientCtx.clearRect(0, 0, viewW, viewH);
+      }
+      return;
+    }
+    if (!starZ) initStars();
+    resizeStarCanvas(ambientStarCanvas, ambientCtx);
+    ambientStarCanvas.classList.add('is-active');
+    if (!ambientRafId) {
+      lastAmbientTime = performance.now();
+      ambientRafId = requestAnimationFrame(ambientLoop);
     }
   }
 
-  document.addEventListener('visibilitychange', syncTypingState);
+  function endIntro(skipped = false) {
+    if (introEnded) return;
+    introEnded = true;
+    isIntroPlaying = false;
+    hasPlayedIntro = true;
 
-  /* ==========================================
-     3. LIGHTWEIGHT CANVAS & STICKY SCROLLYTELLING
-     ========================================== */
-  if (scrollyWrapper && scrollyViewport && scrollyCanvas) {
-    const ctx = scrollyCanvas.getContext('2d', { alpha: true });
-    let canvasWidth = 0;
-    let canvasHeight = 0;
-    let dpr = 1;
-    let wrapperTop = 0;
-    let scrollableHeight = 1;
-
-    let targetProgress = 0;
-    let currentProgress = 0;
-    let lastCanvasProgress = -1;
-    let lastGateProgress = -1;
-    let lastGateDone = false;
-    let lastActiveIndex = -1;
-    let lastSentenceCount = -1;
-    let lastArchCount = -1;
-    let scrubRafId = null;
-    let resizeDebounceId = null;
-
-    // Pre-rendered glow sprites eliminate expensive per-particle ctx.shadowBlur calls
-    function createGlowSprite(hexColor) {
-      const size = 28;
-      const half = size / 2;
-      const offscreen = document.createElement('canvas');
-      offscreen.width = size;
-      offscreen.height = size;
-      const octx = offscreen.getContext('2d');
-      const grad = octx.createRadialGradient(half, half, 0, half, half, half);
-      grad.addColorStop(0, hexColor);
-      grad.addColorStop(0.32, hexColor);
-      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      octx.fillStyle = grad;
-      octx.fillRect(0, 0, size, size);
-      return offscreen;
+    if (introRafId) {
+      cancelAnimationFrame(introRafId);
+      introRafId = null;
+    }
+    if (window.__introFailsafe) {
+      clearTimeout(window.__introFailsafe);
+      window.__introFailsafe = null;
     }
 
-    const spritePalette = [
-      createGlowSprite('#00f0ff'),
-      createGlowSprite('#8a2be2'),
-      createGlowSprite('#3b82f6')
-    ];
-
-    const particleCount = isLowPerf ? 20 : (mobileQuery.matches ? 28 : 48);
-    const particles = [];
-    for (let i = 0; i < particleCount; i++) {
-      particles.push({
-        x: (Math.random() - 0.5) * 1000,
-        y: (Math.random() - 0.5) * 1000,
-        z: Math.random() * 1000,
-        size: Math.random() * 2.4 + 1.1,
-        cosIdx: Math.cos(i),
-        sinIdx: Math.sin(i),
-        sprite: spritePalette[i % 3]
-      });
+    document.removeEventListener('keydown', handleIntroSkipKey);
+    if (cockpitIntro) cockpitIntro.removeEventListener('click', handleIntroSkipClick);
+    if (cockpitSkipBtn) cockpitSkipBtn.removeEventListener('click', handleIntroSkipClick);
+    if ('DeviceOrientationEvent' in window) {
+      window.removeEventListener('deviceorientation', handleSteerOrientation);
     }
 
-    function measureScrollyLayout() {
-      wrapperTop = scrollyWrapper.offsetTop;
-      scrollableHeight = Math.max(1, scrollyWrapper.offsetHeight - scrollyViewport.offsetHeight);
+    const removeOverlay = () => {
+      root.classList.remove('intro-active');
+      if (cockpitIntro && cockpitIntro.parentNode) {
+        cockpitIntro.parentNode.removeChild(cockpitIntro);
+      }
+      if (cockpitCanvas) {
+        cockpitCanvas.width = 0;
+        cockpitCanvas.height = 0;
+      }
+    };
+
+    const landingPlane = pagePlanes ? pagePlanes.get(landingRouteTarget) : null;
+    if (landingPlane && !handoffTriggered) {
+      handoffTriggered = true;
+      landingPlane.classList.remove('content-pre-enter');
+      if (typeof playPageContentEnter === 'function') {
+        playPageContentEnter(landingPlane, 0);
+      }
     }
 
-    function resizeCanvas(force, skipRender) {
-      const parent = scrollyCanvas.parentElement;
-      if (!parent) return;
-      const nextWidth = parent.clientWidth;
-      const nextHeight = parent.clientHeight;
+    if (skipped && cockpitIntro && !isMotionReduced()) {
+      cockpitIntro.classList.add('is-skipping');
+      setTimeout(() => {
+        removeOverlay();
+        if (landingPlane && typeof focusPageHeading === 'function') focusPageHeading(landingPlane);
+        if (typeof refreshAllLayout === 'function') refreshAllLayout();
+        syncAmbientStarfield();
+      }, 240);
+    } else {
+      removeOverlay();
+      if (landingPlane && typeof focusPageHeading === 'function') focusPageHeading(landingPlane);
+      if (typeof refreshAllLayout === 'function') refreshAllLayout();
+      syncAmbientStarfield();
+    }
+  }
 
-      // Ignore small height-only shifts from mobile URL bar showing/hiding while scrolling
-      if (!force && nextWidth === canvasWidth && Math.abs(nextHeight - canvasHeight) < 120) {
+  function runIntroTimeline(targetRouteName) {
+    landingRouteTarget = targetRouteName || 'home';
+    const destRouteMeta = typeof ROUTE_CONFIG !== 'undefined' && ROUTE_CONFIG[landingRouteTarget]
+      ? ROUTE_CONFIG[landingRouteTarget]
+      : { num: '00', label: 'HOME' };
+    if (cockpitDestText) {
+      cockpitDestText.textContent = `DEST // ${destRouteMeta.num} ${destRouteMeta.label}`;
+    }
+
+    // Skip entirely if already played this session, reduced motion, paused animations, or Save-Data
+    if (hasPlayedIntro || isMotionReduced() || isSaveData || !cockpitIntro || !cockpitCanvas || !cockpitCtx) {
+      hasPlayedIntro = true;
+      root.classList.remove('intro-active');
+      if (window.__introFailsafe) {
+        clearTimeout(window.__introFailsafe);
+        window.__introFailsafe = null;
+      }
+      if (cockpitIntro && cockpitIntro.parentNode) {
+        cockpitIntro.parentNode.removeChild(cockpitIntro);
+      }
+      syncAmbientStarfield();
+      return;
+    }
+
+    hasPlayedIntro = true;
+    isIntroPlaying = true;
+    handoffTriggered = false;
+    root.classList.add('intro-active');
+
+    initStars();
+
+    // Pre-arm Work page headline so it slides up cleanly during the 3.8-4.6s handoff
+    const landingPlane = pagePlanes ? pagePlanes.get(landingRouteTarget) : null;
+    if (landingPlane) {
+      landingPlane.classList.add('content-pre-enter');
+    }
+
+    // Bind controls: Escape, Skip button, or any click skips
+    document.addEventListener('keydown', handleIntroSkipKey);
+    cockpitIntro.addEventListener('click', handleIntroSkipClick);
+    if (cockpitSkipBtn) cockpitSkipBtn.addEventListener('click', handleIntroSkipClick);
+    if ('DeviceOrientationEvent' in window && !isLowEndDevice) {
+      window.addEventListener('deviceorientation', handleSteerOrientation, { passive: true });
+    }
+
+    const cfg = COCKPIT_INTRO_CONFIG;
+    const startTime = performance.now();
+    let prevFrameTime = startTime;
+    let smoothDt = 0.016;
+
+    function tick(now) {
+      if (!isIntroPlaying) return;
+      const elapsed = now - startTime;
+      const rawDt = Math.max(0.001, Math.min((now - prevFrameTime) / 1000, 0.033));
+      prevFrameTime = now;
+      smoothDt = smoothDt * 0.65 + rawDt * 0.35;
+
+      if (elapsed >= cfg.tHandoffEnd) {
+        endIntro(false);
         return;
       }
 
-      canvasWidth = nextWidth;
-      canvasHeight = nextHeight;
+      // Continuous, jerk-free C1-smooth curves (zero camera shake)
+      const isLightNow = root.getAttribute('data-theme') === 'light' || root.classList.contains('light-theme');
+      const targetAmbOp = isLightNow ? cfg.ambientOpacityLight : cfg.ambientOpacityDark;
 
-      isLowPerf = detectLowPerfMode();
-      root.classList.toggle('low-perf-mode', isLowPerf);
+      const fadeIn = smootherstep(0, cfg.tCruiseEnd * 0.85, elapsed);
+      const fadeOutHud = 1 - smootherstep(cfg.tWarpEnd, cfg.tWarpEnd + (cfg.tHandoffEnd - cfg.tWarpEnd) * 0.65, elapsed);
+      const frameOpacity = fadeIn * fadeOutHud;
 
-      const rawDpr = window.devicePixelRatio || 1;
-      dpr = isLowPerf ? 1 : (mobileQuery.matches ? Math.min(rawDpr, 1.25) : Math.min(rawDpr, 1.5));
+      const backdropAlpha = 1 - smootherstep(cfg.tWarpEnd, cfg.tHandoffEnd * 0.94, elapsed);
+      const starIn = smootherstep(0, cfg.tCruiseEnd * 0.55, elapsed);
+      const starOutBlend = smootherstep(cfg.tWarpEnd, cfg.tHandoffEnd, elapsed);
+      const starOpacity = starIn * (1 - starOutBlend * (1 - targetAmbOp));
 
-      scrollyCanvas.width = Math.max(1, Math.floor(canvasWidth * dpr));
-      scrollyCanvas.height = Math.max(1, Math.floor(canvasHeight * dpr));
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      let speed;
+      let warpStreakBoost;
+      let speedRatio;
 
-      measureScrollyLayout();
-      lastCanvasProgress = -1;
-      if (!skipRender) {
-        renderScrollyCanvas(currentProgress);
-        lastCanvasProgress = currentProgress;
-      }
-    }
-
-    function renderScrollyCanvas(progress) {
-      if (!ctx || canvasWidth === 0 || canvasHeight === 0) return;
-
-      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-      const centerX = canvasWidth * 0.5;
-      const centerY = canvasHeight * 0.5;
-
-      // 1. Batched Perspective Mesh Grid (single draw call)
-      const gridOffset = (progress * 400) % 40;
-      const gridCols = mobileQuery.matches ? 8 : 14;
-      ctx.beginPath();
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.07)';
-      ctx.lineWidth = 1;
-
-      for (let i = -gridCols; i <= gridCols; i++) {
-        const xProj = centerX + i * 45;
-        ctx.moveTo(xProj, 0);
-        ctx.lineTo(centerX + i * 140, canvasHeight);
-      }
-
-      const rowStep = isLowPerf ? 48 : 36;
-      for (let y = 0; y < canvasHeight; y += rowStep) {
-        const currY = (y + gridOffset) % canvasHeight;
-        ctx.moveTo(0, currY);
-        ctx.lineTo(canvasWidth, currY);
-      }
-      ctx.stroke();
-
-      // 2. Futuristic 3D Orbit Ring Telemetry Core
-      const rotationAngle = progress * Math.PI * 4;
-      const coreScale = 0.85 + Math.sin(progress * Math.PI) * 0.35;
-
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.scale(coreScale, coreScale);
-
-      // Outer HUD Ring
-      ctx.save();
-      ctx.rotate(rotationAngle * 0.3);
-      ctx.beginPath();
-      ctx.arc(0, 0, 180, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([15, 10, 5, 10]);
-      ctx.stroke();
-      ctx.restore();
-
-      // Middle Counter-Rotating Tech Ring
-      ctx.save();
-      ctx.rotate(-rotationAngle * 0.6);
-      ctx.beginPath();
-      ctx.arc(0, 0, 130, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(138, 43, 226, 0.35)';
-      ctx.lineWidth = 3;
-      ctx.setLineDash([40, 20, 10, 20]);
-      ctx.stroke();
-      ctx.restore();
-
-      // Inner Glowing Core Node (radial gradient, zero shadowBlur)
-      const gradient = ctx.createRadialGradient(0, 0, 6, 0, 0, 80);
-      gradient.addColorStop(0, 'rgba(0, 240, 255, 0.85)');
-      gradient.addColorStop(0.5, 'rgba(138, 43, 226, 0.38)');
-      gradient.addColorStop(1, 'rgba(0, 240, 255, 0)');
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(0, 0, 80, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(0, 0, 8 + Math.sin(progress * 20) * 2.5, 0, Math.PI * 2);
-      ctx.fillStyle = '#00f0ff';
-      ctx.fill();
-      ctx.restore();
-
-      // 3. Scrubbed 3D Particle Constellation (precomputed trig + glow sprites)
-      ctx.save();
-      ctx.translate(centerX, centerY);
-
-      const rotBase = rotationAngle * 0.2;
-      const cosBase = Math.cos(rotBase);
-      const sinBase = Math.sin(rotBase);
-
-      let prevProjX = 0;
-      let prevProjY = 0;
-      ctx.beginPath();
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.14)';
-      ctx.lineWidth = 1;
-
-      for (let idx = 0; idx < particles.length; idx++) {
-        const p = particles[idx];
-        const zPos = (p.z - progress * 800 + 1000) % 1000;
-        const scale = 300 / (300 + zPos);
-
-        const cosRot = cosBase * p.cosIdx - sinBase * p.sinIdx;
-        const sinRot = sinBase * p.cosIdx + cosBase * p.sinIdx;
-        const projX = (p.x * cosRot - p.y * sinRot) * scale;
-        const projY = (p.x * sinRot + p.y * cosRot) * scale;
-
-        const alpha = Math.min(1, Math.max(0.15, (1000 - zPos) / 1000));
-        const drawSize = p.size * scale * 3.4;
-
-        ctx.globalAlpha = alpha;
-        ctx.drawImage(p.sprite, projX - drawSize, projY - drawSize, drawSize * 2, drawSize * 2);
-
-        if (idx > 0 && idx % 4 === 0) {
-          const dx = projX - prevProjX;
-          const dy = projY - prevProjY;
-          if (dx * dx + dy * dy < 14400) {
-            ctx.moveTo(projX, projY);
-            ctx.lineTo(prevProjX, prevProjY);
-          }
-        }
-        prevProjX = projX;
-        prevProjY = projY;
-      }
-
-      ctx.globalAlpha = 1;
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    function updateStageProgress(progress) {
-      if (scrubberProgress) {
-        scrubberProgress.style.transform = `scaleX(${progress})`;
-      }
-
-      // Gate Opening Scroll Synchronization (Progress 0.0 -> 0.14)
-      if (gateOverlay && gateLeft && gateRight && gateEmblem) {
-        const gateProgress = Math.min(1, Math.max(0, progress / 0.14));
-        const isDone = gateProgress >= 0.99;
-
-        if (isDone !== lastGateDone) {
-          gateOverlay.classList.toggle('done', isDone);
-          lastGateDone = isDone;
-        }
-
-        if (!isDone && Math.abs(gateProgress - lastGateProgress) > 0.001) {
-          gateLeft.style.transform = `translate3d(${-gateProgress * 100}%, 0, 0)`;
-          gateRight.style.transform = `translate3d(${gateProgress * 100}%, 0, 0)`;
-          gateEmblem.style.opacity = `${1 - gateProgress}`;
-          gateEmblem.style.transform = `scale(${1 + gateProgress * 0.35})`;
-          gateOverlay.style.pointerEvents = gateProgress >= 0.95 ? 'none' : 'all';
-          lastGateProgress = gateProgress;
-        }
-      }
-
-      // Draw canvas only when hero is visible and progress changed noticeably
-      if (isHeroInView && Math.abs(progress - lastCanvasProgress) > 0.0004) {
-        renderScrollyCanvas(progress);
-        lastCanvasProgress = progress;
-      }
-
-      // Parallax Stage Threshold Transitions
-      let nextActiveIndex = 0;
-      if (progress < 0.23) {
-        nextActiveIndex = 0;
-      } else if (progress < 0.52) {
-        nextActiveIndex = 1;
-      } else if (progress < 0.78) {
-        nextActiveIndex = 2;
+      if (elapsed <= cfg.tWarpEnd) {
+        const ramp = smootherstep(cfg.tCruiseEnd * 0.35, cfg.tWarpEnd, elapsed);
+        const curved = Math.pow(ramp, 1.85);
+        speed = cfg.cruiseSpeed + (cfg.maxWarpSpeed - cfg.cruiseSpeed) * curved;
+        warpStreakBoost = curved * 1.15;
+        speedRatio = 0.06 + 0.94 * Math.pow(ramp, 1.35);
       } else {
-        nextActiveIndex = 3;
+        const decel = 1 - smootherstep(cfg.tWarpEnd, cfg.tHandoffEnd, elapsed);
+        const curvedDecel = Math.pow(decel, 2.2);
+        speed = cfg.ambientSpeed + (cfg.maxWarpSpeed - cfg.ambientSpeed) * curvedDecel;
+        warpStreakBoost = curvedDecel * 1.15;
+        speedRatio = 0.08 + 0.92 * decel;
       }
 
-      if (nextActiveIndex !== lastActiveIndex) {
-        stages.forEach((stage, idx) => {
-          if (stage) {
-            stage.classList.toggle('active', idx === nextActiveIndex);
-          }
-        });
-        lastActiveIndex = nextActiveIndex;
-        activeStageIndex = nextActiveIndex;
-        syncTypingState();
-      }
+      // Smooth bell-shaped radial warp flash around tWarpEnd
+      const flashIn = smootherstep(cfg.tAccelEnd, cfg.tWarpEnd, elapsed);
+      const flashOut = 1 - smootherstep(cfg.tWarpEnd, cfg.tHandoffEnd, elapsed);
+      const flashAlpha = Math.pow(flashIn, 1.35) * flashOut;
 
-      // Stage 2 Sentence-by-Sentence reveal (diffed count to avoid unnecessary DOM mutations)
-      if (nextActiveIndex >= 1 || lastSentenceCount > 0) {
-        const stage2Progress = Math.min(1, Math.max(0, (progress - 0.23) / (0.52 - 0.23)));
-        let revealedCount = 0;
-        if (nextActiveIndex >= 1) {
-          for (let i = 0; i < sentenceElements.length; i++) {
-            if (stage2Progress >= i * 0.15) revealedCount++;
+      let statusLabel = 'SYSTEMS ONLINE';
+      if (elapsed >= cfg.tWarpEnd) {
+        statusLabel = `ARRIVAL // ${destRouteMeta.label}`;
+        if (!handoffTriggered && elapsed >= cfg.tWarpEnd + (cfg.tHandoffEnd - cfg.tWarpEnd) * 0.2) {
+          handoffTriggered = true;
+          if (landingPlane && typeof playPageContentEnter === 'function') {
+            playPageContentEnter(landingPlane, 0);
           }
+          if (cockpitSkipBtn) cockpitSkipBtn.style.opacity = '0';
         }
-        if (revealedCount !== lastSentenceCount) {
-          for (let i = 0; i < sentenceElements.length; i++) {
-            sentenceElements[i].classList.toggle('revealed', i < revealedCount);
-          }
-          lastSentenceCount = revealedCount;
-        }
+      } else if (elapsed >= cfg.tAccelEnd * 0.72) {
+        statusLabel = 'ENGAGING WARP';
+      } else if (elapsed >= cfg.tCruiseEnd) {
+        statusLabel = 'ACCELERATING';
       }
 
-      // Stage 3 Skill Meters (GPU transform scaleX, zero layout reflow)
-      if (nextActiveIndex >= 2 || skillEntries.some(entry => entry.lastVal > 0)) {
-        const stage3Progress = Math.min(1, Math.max(0, (progress - 0.52) / (0.78 - 0.52)));
-        const factor = nextActiveIndex >= 2 ? Math.min(1, stage3Progress * 1.25) : 0;
+      const loadProgress = smootherstep(0, cfg.tWarpEnd, elapsed);
 
-        for (let i = 0; i < skillEntries.length; i++) {
-          const entry = skillEntries[i];
-          const currentVal = Math.round(entry.targetVal * factor);
-          if (currentVal !== entry.lastVal) {
-            if (entry.fill) entry.fill.style.transform = `scaleX(${currentVal / 100})`;
-            if (entry.valText) entry.valText.textContent = `${currentVal}%`;
-            entry.lastVal = currentVal;
-          }
-        }
-      }
-
-      // Stage 4 Feature Badges reveal (diffed count)
-      if (nextActiveIndex === 3 || lastArchCount > 0) {
-        const stage4Progress = Math.min(1, Math.max(0, (progress - 0.78) / (1.0 - 0.78)));
-        let archCount = 0;
-        if (nextActiveIndex === 3) {
-          for (let i = 0; i < archElements.length; i++) {
-            if (stage4Progress >= i * 0.22) archCount++;
-          }
-        }
-        if (archCount !== lastArchCount) {
-          for (let i = 0; i < archElements.length; i++) {
-            archElements[i].classList.toggle('revealed', i < archCount);
-          }
-          lastArchCount = archCount;
-        }
-      }
-    }
-
-    function readTargetProgress() {
-      const raw = (window.scrollY - wrapperTop) / scrollableHeight;
-      return Math.min(1, Math.max(0, raw));
-    }
-
-    function stepScrub() {
-      scrubRafId = null;
-      const snapDirectly = prefersReducedMotionQuery.matches || touchQuery.matches || isLowPerf;
-
-      if (snapDirectly) {
-        currentProgress = targetProgress;
-      } else {
-        const delta = targetProgress - currentProgress;
-        currentProgress = Math.abs(delta) < 0.0005 ? targetProgress : currentProgress + delta * 0.22;
-      }
-
-      updateStageProgress(currentProgress);
-
-      if (Math.abs(targetProgress - currentProgress) > 0.0005) {
-        scrubRafId = requestAnimationFrame(stepScrub);
-      }
-    }
-
-    function scheduleScrubFrame() {
-      if (!scrubRafId) {
-        scrubRafId = requestAnimationFrame(stepScrub);
-      }
-    }
-
-    // Track whether hero wrapper is near or inside the viewport
-    if ('IntersectionObserver' in window) {
-      const heroObserver = new IntersectionObserver(
-        (entries) => {
-          const entry = entries[0];
-          isHeroInView = entry.isIntersecting;
-          syncTypingState();
-          if (isHeroInView) {
-            targetProgress = readTargetProgress();
-            scheduleScrubFrame();
-          }
-        },
-        { rootMargin: '140px 0px' }
-      );
-      heroObserver.observe(scrollyWrapper);
-    }
-
-    window.addEventListener(
-      'scroll',
-      () => {
-        targetProgress = readTargetProgress();
-        if (isHeroInView || !lastGateDone) {
-          scheduleScrubFrame();
-        }
-      },
-      { passive: true }
-    );
-
-    window.addEventListener(
-      'resize',
-      () => {
-        if (resizeDebounceId) clearTimeout(resizeDebounceId);
-        resizeDebounceId = setTimeout(() => {
-          resizeCanvas(false);
-          targetProgress = readTargetProgress();
-          scheduleScrubFrame();
-        }, 120);
-      },
-      { passive: true }
-    );
-
-    // Allow tapping/clicking the gate emblem to open smoothly into Stage 1
-    if (gateOverlay) {
-      gateOverlay.addEventListener('click', () => {
-        measureScrollyLayout();
-        const openScrollY = wrapperTop + scrollableHeight * 0.16;
-        window.scrollTo({
-          top: openScrollY,
-          behavior: prefersReducedMotionQuery.matches ? 'auto' : 'smooth'
-        });
+      updateStars(speed, smoothDt);
+      drawStars(cockpitCtx, {
+        speed,
+        backdropAlpha,
+        starOpacity,
+        warpStreakBoost,
+        flashAlpha,
+        isAmbient: false
       });
+      drawCockpit({
+        frameOpacity,
+        speedRatio,
+        loadProgress,
+        statusLabel
+      });
+
+      introRafId = requestAnimationFrame(tick);
     }
 
-    // Initial render & sync (also handles page reload mid-scroll)
-    resizeCanvas(true, true);
-    targetProgress = readTargetProgress();
-    currentProgress = targetProgress;
-    updateStageProgress(currentProgress);
-    syncTypingState();
-  } else {
-    syncTypingState();
+    introRafId = requestAnimationFrame(tick);
+  }
+
+  window.addEventListener('pointermove', handleSteerPointer, { passive: true });
+
+  /* ==========================================
+     4. HERO 3D WIREFRAME PIPELINE CANVAS (HOME ONLY)
+     ========================================== */
+  const heroEl = document.getElementById('hero');
+  const heroCanvas = document.getElementById('heroCanvas');
+  let isHomeRouteActive = true;
+  let isHeroVisible = true;
+  let heroRafId = null;
+
+  function initHeroWireframe() {
+    if (!heroCanvas || !heroEl) return null;
+    const ctx = heroCanvas.getContext('2d');
+    if (!ctx) return null;
+
+    let w = 1;
+    let h = 1;
+    let dpr = 1;
+
+    function resize() {
+      const rect = heroEl.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      w = rect.width;
+      h = rect.height;
+      const dprCap = isLowEndDevice ? 1 : w <= 768 ? 1.25 : 2;
+      dpr = Math.min(window.devicePixelRatio || 1, dprCap);
+      heroCanvas.width = Math.floor(w * dpr);
+      heroCanvas.height = Math.floor(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    const cubeVerts = [
+      [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+      [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]
+    ];
+    const cubeEdges = [
+      [0, 1], [1, 2], [2, 3], [3, 0],
+      [4, 5], [5, 6], [6, 7], [7, 4],
+      [0, 4], [1, 5], [2, 6], [3, 7]
+    ];
+
+    function drawWireBox(cx, cy, sx, sy, sz, rotY, rotX, strokeStyle) {
+      const cosY = Math.cos(rotY);
+      const sinY = Math.sin(rotY);
+      const cosX = Math.cos(rotX);
+      const sinX = Math.sin(rotX);
+      const pts = cubeVerts.map(([vx, vy, vz]) => {
+        const x = vx * sx;
+        const y = vy * sy;
+        const z = vz * sz;
+        const x1 = x * cosY - z * sinY;
+        const z1 = x * sinY + z * cosY;
+        const y2 = y * cosX - z1 * sinX;
+        const z2 = y * sinX + z1 * cosX;
+        const persp = 560 / (560 - z2);
+        return [cx + x1 * persp, cy + y2 * persp];
+      });
+
+      ctx.beginPath();
+      for (let i = 0; i < cubeEdges.length; i++) {
+        const [a, b] = cubeEdges[i];
+        ctx.moveTo(pts[a][0], pts[a][1]);
+        ctx.lineTo(pts[b][0], pts[b][1]);
+      }
+      ctx.strokeStyle = strokeStyle;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    function cubicPoint(p0, p1, p2, p3, t) {
+      const mt = 1 - t;
+      const mt2 = mt * mt;
+      const t2 = t * t;
+      return [
+        mt2 * mt * p0[0] + 3 * mt2 * t * p1[0] + 3 * mt * t2 * p2[0] + t2 * t * p3[0],
+        mt2 * mt * p0[1] + 3 * mt2 * t * p1[1] + 3 * mt * t2 * p2[1] + t2 * t * p3[1]
+      ];
+    }
+
+    function drawFrame(time) {
+      if (w <= 1 || h <= 1) return;
+      ctx.clearRect(0, 0, w, h);
+      const isLight = root.getAttribute('data-theme') === 'light';
+      const ink = isLight ? '20, 20, 20' : '255, 255, 255';
+      const tSec = time * 0.001;
+
+      const leftX = w * 0.14;
+      const midX = w * 0.5;
+      const rightX = w * 0.87;
+      const midY = h * 0.49;
+
+      const leftAnchors = [h * 0.25, h * 0.49, h * 0.72];
+      const rightAnchors = [h * 0.30, h * 0.49, h * 0.68];
+      const dotsPerLine = w < 640 ? 22 : 44;
+
+      for (let s = 0; s < 3; s++) {
+        const ly = leftAnchors[s];
+        const wave = Math.sin(tSec * 1.1 + s * 1.7) * 26;
+        const p0 = [leftX + 26, ly];
+        const p1 = [leftX + (midX - leftX) * 0.38, ly + wave];
+        const p2 = [leftX + (midX - leftX) * 0.68, midY - wave * 0.65];
+        const p3 = [midX - 42, midY];
+
+        ctx.fillStyle = `rgba(${ink}, 0.34)`;
+        for (let d = 0; d < dotsPerLine; d++) {
+          const u = (d / dotsPerLine + (tSec * 0.12) % (1 / dotsPerLine)) % 1;
+          const [px, py] = cubicPoint(p0, p1, p2, p3, u);
+          ctx.fillRect(px, py, 1.6, 1.6);
+        }
+
+        const ry = rightAnchors[s];
+        const q0 = [midX + 42, midY];
+        const q1 = [midX + (rightX - midX) * 0.42, midY];
+        const q2 = [midX + (rightX - midX) * 0.62, ry];
+        const q3 = [rightX - 28, ry];
+
+        ctx.fillStyle = `rgba(${ink}, 0.38)`;
+        for (let d = 0; d < dotsPerLine; d++) {
+          const u = (d / dotsPerLine + (tSec * 0.14) % (1 / dotsPerLine)) % 1;
+          const [px, py] = cubicPoint(q0, q1, q2, q3, u);
+          ctx.fillRect(px, py, 1.6, 1.6);
+        }
+
+        if (!isMotionReduced()) {
+          const uIn = (tSec * 0.28 + s * 0.33) % 1;
+          const [ix, iy] = cubicPoint(p0, p1, p2, p3, uIn);
+          ctx.fillStyle = `rgba(${ink}, 0.92)`;
+          ctx.fillRect(ix - 2.5, iy - 2.5, 5, 5);
+
+          const uOut = (tSec * 0.32 + s * 0.33 + 0.15) % 1;
+          const [ox, oy] = cubicPoint(q0, q1, q2, q3, uOut);
+          ctx.fillRect(ox - 2.5, oy - 2.5, 5, 5);
+        }
+      }
+
+      const boxStroke = `rgba(${ink}, 0.48)`;
+      const coreStroke = `rgba(${ink}, 0.56)`;
+      const tilt = Math.sin(tSec * 0.5) * 0.14;
+
+      for (let i = 0; i < 3; i++) {
+        drawWireBox(leftX, leftAnchors[i], 26, 13, 12, 0.25 + tilt * 0.5, 0.22, boxStroke);
+        drawWireBox(rightX, rightAnchors[i], 26, 13, 12, -0.25 - tilt * 0.5, 0.22, boxStroke);
+      }
+
+      drawWireBox(midX, midY, 44, 44, 44, 0.32 + tSec * 0.22, 0.26 + Math.sin(tSec * 0.4) * 0.1, coreStroke);
+    }
+
+    let lastHeroDraw = 0;
+    const heroMinFrameMs = isLowEndDevice ? 34 : 0;
+
+    function loop(now) {
+      if (isMotionReduced() || !isHomeRouteActive || !isHeroVisible || document.hidden) {
+        heroRafId = null;
+        return;
+      }
+      if (isLowEndDevice && (isScrollingMobile || isTransitioning)) {
+        heroRafId = requestAnimationFrame(loop);
+        return;
+      }
+      if (heroMinFrameMs === 0 || now - lastHeroDraw >= heroMinFrameMs) {
+        lastHeroDraw = now;
+        drawFrame(now);
+      }
+      heroRafId = requestAnimationFrame(loop);
+    }
+
+    function sync() {
+      if (!isHomeRouteActive) {
+        if (heroRafId) {
+          cancelAnimationFrame(heroRafId);
+          heroRafId = null;
+        }
+        return;
+      }
+      resize();
+      if (isMotionReduced()) {
+        if (heroRafId) {
+          cancelAnimationFrame(heroRafId);
+          heroRafId = null;
+        }
+        drawFrame(1200);
+        return;
+      }
+      if (isHeroVisible && !document.hidden && !heroRafId) {
+        heroRafId = requestAnimationFrame(loop);
+      }
+    }
+
+    resize();
+    drawFrame(1200);
+    return { sync };
+  }
+
+  const heroWireframe = initHeroWireframe();
+
+  /* ==========================================
+     5. HERO FOCUS SUB-CAPTION TICKER
+     ========================================== */
+  const tickerEl = document.getElementById('typingText');
+  const focusPhrases = [
+    'SOFTWARE & WEB / DBMS & NETWORKING',
+    'JAVA · PYTHON · PHP · LARAVEL · JAVASCRIPT · SQL · C#',
+    'HND IN INFORMATION TECHNOLOGY · SLIATE',
+    'BATTICALOA, SRI LANKA / OPEN TO COLLABORATE'
+  ];
+  let phraseIndex = 0;
+  let tickerInterval = null;
+  let tickerSwapTimeout = null;
+
+  function cycleFocusPhrase() {
+    if (!tickerEl || isMotionReduced() || !isHomeRouteActive || !isHeroVisible || document.hidden) return;
+    tickerEl.classList.add('is-switching');
+    if (tickerSwapTimeout) clearTimeout(tickerSwapTimeout);
+    tickerSwapTimeout = setTimeout(() => {
+      phraseIndex = (phraseIndex + 1) % focusPhrases.length;
+      tickerEl.textContent = focusPhrases[phraseIndex];
+      tickerEl.classList.remove('is-switching');
+    }, 220);
+  }
+
+  function syncTicker() {
+    if (!tickerEl) return;
+    if (isMotionReduced() || !isHomeRouteActive || !isHeroVisible || document.hidden) {
+      if (tickerInterval) {
+        clearInterval(tickerInterval);
+        tickerInterval = null;
+      }
+      tickerEl.classList.remove('is-switching');
+      return;
+    }
+    if (!tickerInterval) {
+      tickerInterval = setInterval(cycleFocusPhrase, 3600);
+    }
+  }
+
+  if (heroEl && 'IntersectionObserver' in window) {
+    const heroObs = new IntersectionObserver(
+      (entries) => {
+        isHeroVisible = entries[0].isIntersecting;
+        syncTicker();
+        if (heroWireframe) heroWireframe.sync();
+      },
+      { threshold: 0.02 }
+    );
+    heroObs.observe(heroEl);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    syncTicker();
+    if (heroWireframe) heroWireframe.sync();
+    syncAmbientStarfield();
+  });
+
+  if (motionToggle) {
+    motionToggle.addEventListener('click', () => {
+      userMotionPaused = !userMotionPaused;
+      try {
+        localStorage.setItem('motionPaused', userMotionPaused ? 'true' : 'false');
+      } catch (e) {
+        /* ignore storage errors */
+      }
+      syncMotionState();
+      syncTicker();
+      if (heroWireframe) heroWireframe.sync();
+      syncAmbientStarfield();
+    });
+  }
+
+  if (typeof reducedMotionQuery.addEventListener === 'function') {
+    reducedMotionQuery.addEventListener('change', () => {
+      syncMotionState();
+      syncTicker();
+      if (heroWireframe) heroWireframe.sync();
+      syncAmbientStarfield();
+    });
   }
 
   /* ==========================================
-     4. NAVBAR SCROLLED STATE, MOBILE MENU & THEME
+     6. EYEBROW SCRAMBLE DECODE & BELOW-FOLD REVEALS
      ========================================== */
-  const navbar = document.getElementById('navbar');
-  const mobileToggle = document.getElementById('mobileToggle');
-  const navMenu = document.getElementById('navMenu');
-  const navLinks = Array.from(document.querySelectorAll('.nav-link'));
-  let isNavbarScrolled = false;
-  let navRafPending = false;
+  const DECODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/—·';
 
-  function syncNavbarScrolled() {
-    navRafPending = false;
-    if (!navbar) return;
-    const shouldScroll = window.scrollY > 50;
-    if (shouldScroll !== isNavbarScrolled) {
-      navbar.classList.toggle('scrolled', shouldScroll);
-      isNavbarScrolled = shouldScroll;
+  function runDecode(el) {
+    if (!el || isMotionReduced()) return;
+    const finalText = el.dataset.finalText || el.textContent;
+    el.dataset.finalText = finalText;
+
+    let frame = 0;
+    const totalFrames = 14;
+    function step() {
+      frame++;
+      const revealCount = Math.floor((frame / totalFrames) * finalText.length);
+      let out = '';
+      for (let i = 0; i < finalText.length; i++) {
+        const ch = finalText[i];
+        if (ch === ' ' || i < revealCount) {
+          out += ch;
+        } else {
+          out += DECODE_CHARS[(i * 7 + frame * 3) % DECODE_CHARS.length];
+        }
+      }
+      el.textContent = out;
+      if (frame < totalFrames) {
+        requestAnimationFrame(step);
+      } else {
+        el.textContent = finalText;
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  let activeRevealObserver = null;
+
+  function armRevealsForPlane(plane) {
+    if (!plane) return;
+    if (activeRevealObserver) {
+      activeRevealObserver.disconnect();
+      activeRevealObserver = null;
+    }
+
+    const targets = Array.from(plane.querySelectorAll('.reveal'));
+    if (targets.length === 0) return;
+
+    if (isMotionReduced() || !('IntersectionObserver' in window)) {
+      targets.forEach((el) => el.classList.add('reveal-visible'));
+      return;
+    }
+
+    root.classList.add('reveal-ready');
+    targets.forEach((el) => el.classList.remove('reveal-visible'));
+
+    activeRevealObserver = new IntersectionObserver(
+      (entries, obs) => {
+        for (let i = 0; i < entries.length; i++) {
+          const entry = entries[i];
+          if (!entry.isIntersecting) continue;
+          const el = entry.target;
+          const idx = parseInt(el.getAttribute('data-stagger-index') || '0', 10);
+          el.style.setProperty('--reveal-delay', `${Math.min(idx * 55, 220)}ms`);
+          el.classList.add('reveal-visible');
+          obs.unobserve(el);
+        }
+      },
+      { threshold: 0.01, rootMargin: '0px 0px 100px 0px' }
+    );
+
+    targets.forEach((el) => activeRevealObserver.observe(el));
+  }
+
+  /* ==========================================
+     7. PER-PAGE TELEMETRY RAIL (.signal-line)
+     ========================================== */
+  const signalTrack = document.getElementById('signalTrack');
+  const signalPacket = document.getElementById('signalPacket');
+  const signalReadout = document.getElementById('signalReadout');
+
+  let cachedMaxScroll = 1;
+  let cachedTrackHeight = 1;
+  let cachedTicks = [];
+
+  function rebuildSignalTicksForPlane(plane) {
+    if (!signalTrack || !plane) return;
+    signalTrack.querySelectorAll('.signal-line-tick').forEach((t) => t.remove());
+
+    const markers = Array.from(plane.querySelectorAll('[data-tick]')).filter(
+      (el) => el.offsetParent !== null && !el.classList.contains('is-hidden')
+    );
+
+    cachedMaxScroll = Math.max(1, root.scrollHeight - window.innerHeight);
+    cachedTrackHeight = Math.max(1, signalTrack.clientHeight);
+
+    cachedTicks = markers.map((el) => {
+      const tick = document.createElement('span');
+      tick.className = 'signal-line-tick';
+      const top = Math.max(0, el.getBoundingClientRect().top + window.scrollY);
+      const pct = cachedMaxScroll <= 4 ? 0 : Math.min(96, Math.max(2, (top / cachedMaxScroll) * 100));
+      tick.style.top = `${pct.toFixed(2)}%`;
+      signalTrack.insertBefore(tick, signalPacket);
+      return { tick, top };
+    });
+  }
+
+  let scrollPending = false;
+
+  function updateSignalRail() {
+    scrollPending = false;
+    const y = window.scrollY || 0;
+    const maxS = Math.max(1, root.scrollHeight - window.innerHeight);
+    cachedMaxScroll = maxS;
+    const ratio = maxS <= 4 ? 0 : Math.min(1, Math.max(0, y / maxS));
+    const pctInt = Math.round(ratio * 100);
+
+    if (signalPacket) {
+      signalPacket.style.transform = `translate3d(0, ${(ratio * cachedTrackHeight).toFixed(1)}px, 0)`;
+    }
+    if (signalReadout) {
+      signalReadout.textContent = String(pctInt).padStart(3, '0');
+    }
+
+    for (let i = 0; i < cachedTicks.length; i++) {
+      const item = cachedTicks[i];
+      if (y >= item.top - 160) {
+        item.tick.setAttribute('data-passed', 'true');
+      } else {
+        item.tick.removeAttribute('data-passed');
+      }
     }
   }
 
   window.addEventListener(
     'scroll',
     () => {
-      if (!navRafPending) {
-        navRafPending = true;
-        requestAnimationFrame(syncNavbarScrolled);
+      if (isLowEndDevice || coarsePointerQuery.matches) {
+        isScrollingMobile = true;
+        if (mobileScrollIdleTimer) clearTimeout(mobileScrollIdleTimer);
+        mobileScrollIdleTimer = setTimeout(() => {
+          isScrollingMobile = false;
+        }, 140);
+      }
+      if (!scrollPending) {
+        scrollPending = true;
+        requestAnimationFrame(updateSignalRail);
       }
     },
     { passive: true }
   );
-  syncNavbarScrolled();
-
-  // Mobile Menu Toggle
-  function closeMobileMenu() {
-    if (!navMenu || !navMenu.classList.contains('active')) return;
-    navMenu.classList.remove('active');
-    if (mobileToggle) {
-      mobileToggle.setAttribute('aria-expanded', 'false');
-      const icon = mobileToggle.querySelector('i');
-      if (icon) icon.className = 'fa-solid fa-bars';
-    }
-  }
-
-  if (mobileToggle && navMenu) {
-    mobileToggle.setAttribute('aria-expanded', 'false');
-    mobileToggle.addEventListener('click', () => {
-      const isOpen = navMenu.classList.toggle('active');
-      mobileToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-      const icon = mobileToggle.querySelector('i');
-      if (icon) {
-        icon.className = isOpen ? 'fa-solid fa-xmark' : 'fa-solid fa-bars';
-      }
-    });
-  }
-
-  // Theme Toggle (independent of mobileToggle)
-  const themeToggle = document.getElementById('themeToggle');
-  const savedTheme = localStorage.getItem('theme') || 'dark';
-  if (savedTheme === 'light') {
-    root.classList.add('light-theme');
-    if (themeToggle) {
-      const icon = themeToggle.querySelector('i');
-      if (icon) icon.className = 'fa-solid fa-sun';
-    }
-  }
-
-  if (themeToggle) {
-    themeToggle.addEventListener('click', () => {
-      const isLight = root.classList.toggle('light-theme');
-      localStorage.setItem('theme', isLight ? 'light' : 'dark');
-      const icon = themeToggle.querySelector('i');
-      if (icon) {
-        icon.className = isLight ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-      }
-    });
-  }
-
-  // Smooth Anchor Scrolling + Mobile Menu Auto-Close
-  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', (e) => {
-      const href = anchor.getAttribute('href');
-      if (!href || href === '#') return;
-      const target = document.querySelector(href);
-      if (!target) return;
-
-      e.preventDefault();
-      closeMobileMenu();
-
-      const targetTop = href === '#hero' ? 0 : target.getBoundingClientRect().top + window.scrollY;
-      window.scrollTo({
-        top: targetTop,
-        behavior: prefersReducedMotionQuery.matches ? 'auto' : 'smooth'
-      });
-    });
-  });
 
   /* ==========================================
-     5. ACTIVE NAVBAR LINK HIGHLIGHTING (NO LAYOUT THRASHING)
+     8. MAGNETIC CORNER VIEWFINDER BRACKETS
      ========================================== */
-  const trackedTargets = Array.from(document.querySelectorAll('#hero, section[id]'));
-  const navLinkBySection = new Map();
-  navLinks.forEach(link => {
-    const href = link.getAttribute('href');
-    if (href && href.startsWith('#')) {
-      navLinkBySection.set(href.slice(1), link);
+  const bracketsEl = document.getElementById('cursorBrackets');
+  let resetBrackets = () => {};
+
+  if (finePointerQuery.matches && bracketsEl) {
+    let activeTarget = null;
+    let bx = 0;
+    let by = 0;
+    let bw = 0;
+    let bh = 0;
+    let tx = 0;
+    let ty = 0;
+    let tw = 0;
+    let th = 0;
+    let shown = false;
+    let rafId = null;
+
+    resetBrackets = () => {
+      activeTarget = null;
+      shown = false;
+      bracketsEl.classList.remove('is-visible');
+    };
+
+    function syncTargetRect() {
+      if (!activeTarget) return;
+      const r = activeTarget.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) {
+        resetBrackets();
+        return;
+      }
+      const pad = r.height > 70 ? 6 : 8;
+      tx = r.left - pad;
+      ty = r.top - pad;
+      tw = r.width + pad * 2;
+      th = r.height + pad * 2;
     }
-  });
 
-  function setActiveNavLink(id) {
-    const targetLink = navLinkBySection.get(id);
-    if (!targetLink) return;
-    navLinks.forEach(link => link.classList.toggle('active', link === targetLink));
-  }
+    function animateBrackets() {
+      rafId = null;
+      if (!activeTarget || isMotionReduced() || isTransitioning) {
+        resetBrackets();
+        return;
+      }
+      syncTargetRect();
+      if (!activeTarget) return;
+      const k = 0.24;
+      bx += (tx - bx) * k;
+      by += (ty - by) * k;
+      bw += (tw - bw) * k;
+      bh += (th - bh) * k;
 
-  if ('IntersectionObserver' in window && trackedTargets.length > 0) {
-    const navObserver = new IntersectionObserver(
-      (entries) => {
-        for (let i = 0; i < entries.length; i++) {
-          if (entries[i].isIntersecting) {
-            setActiveNavLink(entries[i].target.id);
-          }
+      bracketsEl.style.transform = `translate3d(${bx.toFixed(1)}px, ${by.toFixed(1)}px, 0)`;
+      bracketsEl.style.width = `${bw.toFixed(1)}px`;
+      bracketsEl.style.height = `${bh.toFixed(1)}px`;
+
+      if (
+        Math.abs(tx - bx) > 0.4 ||
+        Math.abs(ty - by) > 0.4 ||
+        Math.abs(tw - bw) > 0.4 ||
+        Math.abs(th - bh) > 0.4
+      ) {
+        rafId = requestAnimationFrame(animateBrackets);
+      }
+    }
+
+    document.addEventListener(
+      'pointerover',
+      (e) => {
+        if (isMotionReduced() || isTransitioning || e.pointerType !== 'mouse') return;
+        const target = e.target.closest('[data-bracket]');
+        if (!target || target === activeTarget) return;
+        activeTarget = target;
+        syncTargetRect();
+        if (!shown) {
+          bx = tx;
+          by = ty;
+          bw = tw;
+          bh = th;
+          bracketsEl.style.transform = `translate3d(${bx.toFixed(1)}px, ${by.toFixed(1)}px, 0)`;
+          bracketsEl.style.width = `${bw.toFixed(1)}px`;
+          bracketsEl.style.height = `${bh.toFixed(1)}px`;
+          bracketsEl.classList.add('is-visible');
+          shown = true;
+        }
+        if (!rafId) rafId = requestAnimationFrame(animateBrackets);
+      },
+      { passive: true }
+    );
+
+    document.addEventListener(
+      'pointerout',
+      (e) => {
+        if (!activeTarget) return;
+        const next = e.relatedTarget ? e.relatedTarget.closest('[data-bracket]') : null;
+        if (!next) resetBrackets();
+      },
+      { passive: true }
+    );
+
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (activeTarget && !rafId) {
+          rafId = requestAnimationFrame(animateBrackets);
         }
       },
-      { rootMargin: '-35% 0px -55% 0px', threshold: 0 }
+      { passive: true }
     );
-    trackedTargets.forEach(target => navObserver.observe(target));
   }
 
   /* ==========================================
-     6. COMPOSITOR-DRIVEN SECTION REVEALS
+     9. SELECTED WORK — INVERTED WIPE & ANIMATED SVG BLUEPRINTS
      ========================================== */
-  const revealElements = Array.from(document.querySelectorAll('.reveal-up, .reveal-fade, .reveal-left, .reveal-right'));
+  const PROJECTS = {
+    driveease: {
+      num: '01',
+      brand: '#2B8BFF',
+      diagramTitle: '01 / VEHICLE RENTAL ARCHITECTURE',
+      ariaLabel: 'DriveEase architecture: Catalog UI, booking form and sessions flow into PHP Booking Engine, then out to Fleet DB, Reservations and Live Deploy',
+      stackLine: 'HTML5 / CSS3 / JAVASCRIPT / PHP / MYSQL',
+      description:
+        'A feature-rich vehicle rental platform designed to deliver seamless fleet browsing, reservation workflows, and structured backend inventory management.',
+      leftNodes: ['CATALOG UI', 'BOOKING FORM', 'AUTH SESSION'],
+      coreLabel: 'PHP ENGINE',
+      rightNodes: ['FLEET DB', 'RESERVATIONS', 'LIVE DEPLOY'],
+      metrics: [
+        { label: 'STACK LAYERS', value: '5', linkText: 'GITHUB REPO ↗', href: 'https://github.com/virajwills2003-source/First-Project' },
+        { label: 'LIVE DEPLOYMENT', value: 'LIVE', linkText: 'LIVE PREVIEW ↗', href: 'https://virajwills2003-source.github.io/First-Project/' },
+        { label: 'ARCHITECTURE', value: 'MVC', linkText: 'SOURCE CODE ↗', href: 'https://github.com/virajwills2003-source/First-Project' }
+      ]
+    },
+    roommate: {
+      num: '02',
+      brand: '#FA5022',
+      diagramTitle: '02 / FULL-STACK MATCHING PIPELINE',
+      ariaLabel: 'Roommate Finder architecture: Blade Views, JS Filters and User Profiles connect to Laravel MVC core, outputting to Match Engine, MySQL DB and Railway Prod',
+      stackLine: 'LARAVEL / BLADE / PHP / JAVASCRIPT / MYSQL',
+      description:
+        'A full-stack web platform helping users discover compatible roommates efficiently — built with Laravel MVC, structured relational tables, and live Railway deployment.',
+      leftNodes: ['BLADE VIEWS', 'JS FILTERS', 'USER PROFILES'],
+      coreLabel: 'LARAVEL MVC',
+      rightNodes: ['MATCH ENGINE', 'MYSQL DB', 'RAILWAY PROD'],
+      metrics: [
+        { label: 'FRAMEWORK', value: 'LARAVEL', linkText: 'GITHUB PROFILE ↗', href: 'https://github.com/virajwills2003-source' },
+        { label: 'PRODUCTION HOST', value: 'LIVE', linkText: 'RAILWAY APP ↗', href: 'https://roommate-finder-production-0e28.up.railway.app' },
+        { label: 'PROJECT TIER', value: 'FINAL', linkText: 'LIVE PREVIEW ↗', href: 'https://roommate-finder-production-0e28.up.railway.app' }
+      ]
+    },
+    techreview: {
+      num: '03',
+      brand: '#107ACA',
+      diagramTitle: '03 / EVALUATION REPOSITORY FLOW',
+      ariaLabel: 'TEch-Review architecture: Review Portal, Benchmarks and Network Metrics route through Analysis Core to Archive DB, MySQL Store and Railway Live',
+      stackLine: 'HTML5 / CSS3 / JAVASCRIPT / PHP / MYSQL',
+      description:
+        'An open-source technology review and evaluation repository dedicated to benchmarking software applications, networking architectures, and structured technical analysis.',
+      leftNodes: ['REVIEW PORTAL', 'BENCHMARKS', 'NET METRICS'],
+      coreLabel: 'ANALYSIS CORE',
+      rightNodes: ['ARCHIVE DB', 'MYSQL STORE', 'RAILWAY LIVE'],
+      metrics: [
+        { label: 'ACCESS MODEL', value: 'OSS', linkText: 'GITHUB REPO ↗', href: 'https://github.com/virajwills2003-source/TEch-Review' },
+        { label: 'HOSTING', value: 'LIVE', linkText: 'RAILWAY APP ↗', href: 'https://tech-review-production.up.railway.app/' },
+        { label: 'CORE STACK', value: '5', linkText: 'SOURCE CODE ↗', href: 'https://github.com/virajwills2003-source/TEch-Review' }
+      ]
+    },
+    booksystem: {
+      num: '04',
+      brand: '#FE5000',
+      diagramTitle: '04 / JAVA DESKTOP SYSTEM OVERVIEW',
+      ariaLabel: 'Book Management System architecture: Swing GUI, Book Catalog and Borrowers flow through JDBC Bridge into CRUD Engine, MySQL Records and Reports',
+      stackLine: 'JAVA / SWING / MYSQL / JDBC',
+      description:
+        'A Java desktop application for managing library books, borrowers, and lending transactions — implementing full CRUD workflows, fast search, and report generation.',
+      leftNodes: ['SWING GUI', 'BOOK CATALOG', 'BORROWER OPS'],
+      coreLabel: 'JDBC BRIDGE',
+      rightNodes: ['CRUD ENGINE', 'MYSQL DB', 'REPORTS'],
+      metrics: [
+        { label: 'RUNTIME', value: 'JAVA', linkText: 'GITHUB REPO ↗', href: 'https://github.com/virajwills2003-source/Book-management-system-' },
+        { label: 'DATA LAYER', value: 'JDBC', linkText: 'SOURCE CODE ↗', href: 'https://github.com/virajwills2003-source/Book-management-system-' },
+        { label: 'OPERATIONS', value: 'CRUD', linkText: 'GITHUB REPO ↗', href: 'https://github.com/virajwills2003-source/Book-management-system-' }
+      ]
+    }
+  };
 
-  if ('IntersectionObserver' in window && !prefersReducedMotionQuery.matches) {
-    const revealObserver = new IntersectionObserver(
-      (entries, observer) => {
-        for (let i = 0; i < entries.length; i++) {
-          const entry = entries[i];
-          if (entry.isIntersecting) {
-            entry.target.classList.add('reveal-active');
-            observer.unobserve(entry.target);
-          }
-        }
-      },
-      { threshold: 0.08, rootMargin: '0px 0px -30px 0px' }
-    );
-    revealElements.forEach(el => revealObserver.observe(el));
-  } else {
-    revealElements.forEach(el => el.classList.add('reveal-active'));
-  }
-
-  /* ==========================================
-     7. SKILL BARS & SINGLE-RAF COUNTER ANIMATION
-     ========================================== */
-  const skillsSection = document.getElementById('skills');
-  let hasAnimatedSkills = false;
-
-  function animateSkills() {
-    const counters = [];
-
-    document.querySelectorAll('.skill-card .skill-item').forEach(item => {
-      const fillBar = item.querySelector('.progress-bar-fill');
-      const percentageText = item.querySelector('.skill-percentage');
-      if (!fillBar || !percentageText) return;
-
-      const targetNum = parseInt(percentageText.getAttribute('data-target'), 10) || 0;
-      fillBar.style.transform = `scaleX(${targetNum / 100})`;
-
-      if (prefersReducedMotionQuery.matches) {
-        percentageText.textContent = `${targetNum}%`;
-      } else {
-        counters.push({ el: percentageText, target: targetNum, last: -1 });
-      }
-    });
-
-    if (counters.length === 0) return;
-
-    const duration = 1100;
-    const startTime = performance.now();
-
-    function stepCounters(now) {
-      const progress = Math.min(1, (now - startTime) / duration);
-      const eased = 1 - Math.pow(1 - progress, 3);
-
-      for (let i = 0; i < counters.length; i++) {
-        const counter = counters[i];
-        const value = Math.round(counter.target * eased);
-        if (value !== counter.last) {
-          counter.el.textContent = `${value}%`;
-          counter.last = value;
-        }
-      }
-
-      if (progress < 1) {
-        requestAnimationFrame(stepCounters);
-      }
+  function buildBlueprintSVG(project) {
+    let gridLines = '';
+    for (let x = 0; x <= 800; x += 40) {
+      gridLines += `<path d="M ${x} 0 V 350" class="diagram-grid"></path>`;
+    }
+    for (let y = 0; y <= 320; y += 40) {
+      gridLines += `<path d="M 0 ${y} H 800" class="diagram-grid"></path>`;
     }
 
-    requestAnimationFrame(stepCounters);
+    const leftY = [100, 175, 250];
+    const leftMarkup = project.leftNodes
+      .map(
+        (label, idx) => `
+          <g>
+            <rect x="76" y="${leftY[idx] - 20}" width="158" height="40" class="diagram-node"></rect>
+            <text x="155" y="${leftY[idx] + 5}" text-anchor="middle" class="diagram-label diagram-node-label">${label}</text>
+          </g>
+        `
+      )
+      .join('');
+
+    const rightMarkup = project.rightNodes
+      .map(
+        (label, idx) => `
+          <g>
+            <rect x="566" y="${leftY[idx] - 20}" width="158" height="40" class="diagram-node"></rect>
+            <text x="645" y="${leftY[idx] + 5}" text-anchor="middle" class="diagram-label diagram-node-label">${label}</text>
+          </g>
+        `
+      )
+      .join('');
+
+    return `
+      <div class="architecture" role="img" aria-label="${project.ariaLabel}">
+        <svg viewBox="0 0 800 350" aria-hidden="true">
+          ${gridLines}
+          <text x="28" y="30" class="diagram-label">${project.diagramTitle}</text>
+          <text x="28" y="334" class="diagram-label">JV / SYSTEM OVERVIEW</text>
+
+          <path d="M 234 100 H 280 L 325 175 M 475 175 L 520 100 H 566" pathLength="1" class="diagram-path diagram-draw"></path>
+          <path d="M 234 175 H 280 L 325 175 M 475 175 L 520 175 H 566" pathLength="1" class="diagram-path diagram-draw"></path>
+          <path d="M 234 250 H 280 L 325 175 M 475 175 L 520 250 H 566" pathLength="1" class="diagram-path diagram-draw"></path>
+
+          <rect x="-3" y="-3" width="6" height="6" class="packet">
+            <animateMotion dur="2.4s" begin="0s" repeatCount="indefinite" path="M 234 100 H 280 L 325 175 H 475 L 520 100 H 566"></animateMotion>
+          </rect>
+          <rect x="-3" y="-3" width="6" height="6" class="packet">
+            <animateMotion dur="2.4s" begin="-0.8s" repeatCount="indefinite" path="M 234 175 H 280 L 325 175 H 475 L 520 175 H 566"></animateMotion>
+          </rect>
+          <rect x="-3" y="-3" width="6" height="6" class="packet">
+            <animateMotion dur="2.4s" begin="-1.6s" repeatCount="indefinite" path="M 234 250 H 280 L 325 175 H 475 L 520 250 H 566"></animateMotion>
+          </rect>
+
+          ${leftMarkup}
+          ${rightMarkup}
+
+          <rect x="325" y="140" width="150" height="70" class="diagram-core"></rect>
+          <text x="400" y="180" text-anchor="middle" class="diagram-core-label">${project.coreLabel}</text>
+          <path d="M 325 130 V 120 H 475 V 130 M 325 220 V 230 H 475 V 220" class="diagram-path"></path>
+        </svg>
+      </div>
+    `;
   }
 
-  if (skillsSection) {
-    if ('IntersectionObserver' in window) {
-      const skillsObserver = new IntersectionObserver(
-        (entries, observer) => {
-          if (entries[0].isIntersecting && !hasAnimatedSkills) {
-            hasAnimatedSkills = true;
-            animateSkills();
-            observer.unobserve(skillsSection);
-          }
-        },
-        { threshold: 0.15 }
-      );
-      skillsObserver.observe(skillsSection);
+  function buildPreviewMarkup(project, includeKicker) {
+    const metricsHtml = project.metrics
+      .map(
+        (m) => `
+          <div>
+            <dt class="eyebrow text-muted">${m.label}</dt>
+            <dd class="work-context-value">${m.value}</dd>
+            <dd>
+              <a href="${m.href}" target="_blank" rel="noopener noreferrer" class="eyebrow work-context-source">
+                ${m.linkText}
+              </a>
+            </dd>
+          </div>
+        `
+      )
+      .join('');
+
+    return `
+      ${includeKicker ? `<p class="eyebrow text-muted work-preview-kicker">PREVIEW — ${project.num}</p>` : ''}
+      ${buildBlueprintSVG(project)}
+      <p class="work-preview-stack">${project.stackLine}</p>
+      <p class="work-preview-desc">${project.description}</p>
+      <div class="work-context">
+        <p class="eyebrow text-muted">SYSTEM CONTEXT &amp; LINKS</p>
+        <dl class="work-context-figures">${metricsHtml}</dl>
+      </div>
+    `;
+  }
+
+  const workList = document.querySelector('.work-list');
+  const workRows = Array.from(document.querySelectorAll('.work-row'));
+  const workPreviewAside = document.getElementById('work-preview');
+  const workPreviewBody = document.getElementById('workPreviewBody');
+
+  let activeProjectId = 'driveease';
+  let hoverTimer = null;
+
+  function renderWorkPreview(projectId, useTransition) {
+    const project = PROJECTS[projectId];
+    if (!project || !workPreviewBody) return;
+
+    const commit = () => {
+      if (workPreviewAside) workPreviewAside.style.setProperty('--brand', project.brand);
+      workPreviewBody.innerHTML = buildPreviewMarkup(project, true);
+      workPreviewBody.classList.remove('is-entering');
+      void workPreviewBody.offsetWidth;
+      workPreviewBody.classList.add('is-entering');
+    };
+
+    if (
+      useTransition &&
+      !isTransitioning &&
+      typeof document.startViewTransition === 'function' &&
+      !isMotionReduced() &&
+      desktopSplitQuery.matches
+    ) {
+      document.startViewTransition(commit);
     } else {
-      hasAnimatedSkills = true;
-      animateSkills();
+      commit();
     }
   }
 
+  function activateWorkRow(projectId, useTransition, forceRender) {
+    const project = PROJECTS[projectId];
+    if (!project) return;
+    if (projectId === activeProjectId && !forceRender) return;
+    activeProjectId = projectId;
+
+    workRows.forEach((row) => {
+      const isMatch = row.getAttribute('data-project-id') === projectId;
+      const trigger = row.querySelector('.work-row-trigger');
+      const inlineSlot = row.querySelector('.work-row-inline');
+
+      if (isMatch) {
+        row.setAttribute('data-active', 'true');
+      } else {
+        row.removeAttribute('data-active');
+      }
+      if (trigger) {
+        trigger.setAttribute('aria-expanded', isMatch ? 'true' : 'false');
+      }
+      if (isMatch && inlineSlot && !desktopSplitQuery.matches) {
+        inlineSlot.innerHTML = buildPreviewMarkup(project, false);
+      }
+    });
+
+    renderWorkPreview(projectId, useTransition);
+  }
+
+  if (workList && workRows.length > 0) {
+    const triggers = workRows.map((r) => r.querySelector('.work-row-trigger')).filter(Boolean);
+
+    workList.addEventListener('click', (e) => {
+      const trigger = e.target.closest('.work-row-trigger');
+      if (!trigger) return;
+      const row = trigger.closest('.work-row');
+      const id = row ? row.getAttribute('data-project-id') : null;
+      if (id) activateWorkRow(id, true, false);
+    });
+
+    workList.addEventListener('keydown', (e) => {
+      const trigger = e.target.closest('.work-row-trigger');
+      if (!trigger) return;
+      const idx = triggers.indexOf(trigger);
+      if (idx === -1) return;
+
+      let nextIdx = null;
+      if (e.key === 'ArrowDown') nextIdx = (idx + 1) % triggers.length;
+      else if (e.key === 'ArrowUp') nextIdx = (idx - 1 + triggers.length) % triggers.length;
+      else if (e.key === 'Home') nextIdx = 0;
+      else if (e.key === 'End') nextIdx = triggers.length - 1;
+
+      if (nextIdx !== null) {
+        e.preventDefault();
+        const nextTrigger = triggers[nextIdx];
+        const nextRow = nextTrigger.closest('.work-row');
+        const nextId = nextRow ? nextRow.getAttribute('data-project-id') : null;
+        nextTrigger.focus();
+        if (nextId) activateWorkRow(nextId, true, false);
+      }
+    });
+
+    if (finePointerQuery.matches) {
+      workList.addEventListener('pointerover', (e) => {
+        if (!desktopSplitQuery.matches || isTransitioning) return;
+        const row = e.target.closest('.work-row');
+        if (!row) return;
+        const id = row.getAttribute('data-project-id');
+        if (!id || id === activeProjectId) return;
+        if (hoverTimer) clearTimeout(hoverTimer);
+        hoverTimer = setTimeout(() => {
+          activateWorkRow(id, true, false);
+        }, 35);
+      });
+    }
+
+    activateWorkRow('driveease', false, true);
+  }
+
   /* ==========================================
-     8. SKILL CATEGORY TAB FILTERING
+     10. MODULAR DESTINATION-DRIVEN HASH ROUTER
+         Routes: #/ (home), #/work, #/about, #/notes, #/contact
      ========================================== */
-  const tabBtns = document.querySelectorAll('.tab-btn');
-  const skillCards = document.querySelectorAll('.skill-card');
-  const cardTimers = new WeakMap();
+  const ROUTE_CONFIG = {
+    home: {
+      hash: '#/',
+      num: '00',
+      label: 'HOME',
+      hudLabel: 'Home',
+      title: 'J.H.P.W. Viraj — Software & Web Developer',
+      transition: 'scale',
+      next: 'work'
+    },
+    work: {
+      hash: '#/work',
+      num: '01',
+      label: 'WORK',
+      hudLabel: 'Work',
+      title: 'Selected Work — J.H.P.W. Viraj',
+      transition: 'curtain',
+      next: 'about'
+    },
+    about: {
+      hash: '#/about',
+      num: '02',
+      label: 'ABOUT',
+      hudLabel: 'About',
+      title: 'About — J.H.P.W. Viraj',
+      transition: 'slide',
+      next: 'notes'
+    },
+    notes: {
+      hash: '#/notes',
+      num: '03',
+      label: 'FIELD NOTES',
+      hudLabel: 'Field notes',
+      title: 'Field Notes — J.H.P.W. Viraj',
+      transition: 'circle',
+      next: 'contact'
+    },
+    contact: {
+      hash: '#/contact',
+      num: '04',
+      label: 'CONTACT',
+      hudLabel: 'Contact',
+      title: 'Contact — J.H.P.W. Viraj',
+      transition: 'scale',
+      next: 'home'
+    }
+  };
 
-  tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      tabBtns.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+  const ROUTE_ORDER = ['home', 'work', 'about', 'notes', 'contact'];
+  if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+  }
+  const ROUTE_ALIASES = {
+    '': 'home',
+    home: 'home',
+    hero: 'home',
+    work: 'work',
+    projects: 'work',
+    about: 'about',
+    skills: 'about',
+    networking: 'about',
+    notes: 'notes',
+    education: 'notes',
+    contact: 'contact'
+  };
 
-      const filter = btn.getAttribute('data-tab');
+  const pageStage = document.getElementById('main-content');
+  const curtainOverlay = document.getElementById('curtainOverlay');
+  const curtainPanels = curtainOverlay ? Array.from(curtainOverlay.querySelectorAll('.curtain-panel')) : [];
+  const transitionHud = document.getElementById('transitionHud');
+  const transitionHudDest = document.getElementById('transitionHudDest');
+  const transitionHudPct = document.getElementById('transitionHudPct');
+  const chapterPillTrack = document.getElementById('chapterPillTrack');
+  const chapterPillNum = document.getElementById('chapterPillNum');
+  const chapterPillName = document.getElementById('chapterPillName');
+  const navMenu = document.getElementById('navMenu');
+  const navActiveWire = document.getElementById('navActiveWire');
+  const footerNextLink = document.getElementById('footerNextLink');
 
-      skillCards.forEach(card => {
-        const prevTimer = cardTimers.get(card);
-        if (prevTimer) clearTimeout(prevTimer);
+  const navLinks = Array.from(document.querySelectorAll('.site-nav .nav-link'));
+  const mobileLinks = Array.from(document.querySelectorAll('.mobile-drawer-link'));
+  const mobileToggle = document.getElementById('mobileToggle');
+  const mobileToggleLabel = document.getElementById('mobileToggleLabel');
+  const mobileDrawer = document.getElementById('mobileDrawer');
+  const backToTopBtn = document.getElementById('backToTopBtn');
 
-        const category = card.getAttribute('data-category');
-        if (filter === 'all' || category === filter) {
-          card.style.display = 'block';
-          const timer = setTimeout(() => {
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-          }, 25);
-          cardTimers.set(card, timer);
+  const pagePlanes = new Map();
+  document.querySelectorAll('.page-plane[data-page]').forEach((plane) => {
+    pagePlanes.set(plane.getAttribute('data-page'), plane);
+  });
+
+  // Prepare word-level masked headline spans & stagger indices once on boot
+  function preparePageContentElements() {
+    pagePlanes.forEach((plane) => {
+      const heading = plane.querySelector('h1');
+      if (heading) {
+        heading.setAttribute('tabindex', '-1');
+        const plainTitle = heading.textContent.trim().replace(/\s+/g, ' ');
+        heading.setAttribute('aria-label', plainTitle);
+        let wordIdx = 0;
+        heading.querySelectorAll('.heading-reveal, .hero-line').forEach((lineEl) => {
+          const words = lineEl.textContent.trim().split(' ').filter(Boolean);
+          if (words.length === 0) return;
+          lineEl.classList.add('is-split');
+          lineEl.textContent = '';
+          words.forEach((word, i) => {
+            const mask = document.createElement('span');
+            mask.className = 'title-word-mask';
+            mask.setAttribute('aria-hidden', 'true');
+            const span = document.createElement('span');
+            span.className = 'title-word';
+            span.style.setProperty('--word-i', String(wordIdx++));
+            span.textContent = word;
+            mask.appendChild(span);
+            lineEl.appendChild(mask);
+            if (i < words.length - 1) {
+              lineEl.appendChild(document.createTextNode(' '));
+            }
+          });
+        });
+      }
+
+      plane.querySelectorAll('.page-stagger-item').forEach((el, idx) => {
+        el.style.setProperty('--item-i', String(idx));
+      });
+    });
+  }
+
+  preparePageContentElements();
+
+  let currentRoute = null;
+  let isTransitioning = false;
+  let deferredHashSync = false;
+  let hudRafId = null;
+  let chapterPillTimer = null;
+  let contentEnterTimer = null;
+
+  function resolveHash(rawHash) {
+    let cleaned = (rawHash || '').trim();
+    if (cleaned.startsWith('#')) cleaned = cleaned.slice(1);
+    if (cleaned.startsWith('/')) cleaned = cleaned.slice(1);
+    if (cleaned.endsWith('/')) cleaned = cleaned.slice(0, -1);
+    cleaned = cleaned.toLowerCase();
+
+    let subAnchor = null;
+    if (cleaned === 'skills' || cleaned === 'networking' || cleaned === 'education') {
+      subAnchor = cleaned;
+    }
+
+    return {
+      route: ROUTE_ALIASES[cleaned] || 'home',
+      subAnchor
+    };
+  }
+
+  function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /* ---- Mono Destination + 0 -> 100 Progress HUD ---- */
+  function startTransitionHud(destLabel, durationMs) {
+    if (!transitionHud) return;
+    if (hudRafId) {
+      cancelAnimationFrame(hudRafId);
+      hudRafId = null;
+    }
+    if (transitionHudDest) transitionHudDest.textContent = `→ ${destLabel.toUpperCase()}`;
+    if (transitionHudPct) transitionHudPct.textContent = '000';
+    transitionHud.classList.add('is-visible');
+
+    const start = performance.now();
+    function tick(now) {
+      const t = Math.min(1, (now - start) / Math.max(1, durationMs));
+      const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const pct = Math.min(100, Math.round(eased * 100));
+      if (transitionHudPct) transitionHudPct.textContent = String(pct).padStart(3, '0');
+      if (t < 1) {
+        hudRafId = requestAnimationFrame(tick);
+      } else {
+        hudRafId = null;
+      }
+    }
+    hudRafId = requestAnimationFrame(tick);
+  }
+
+  function stopTransitionHud() {
+    if (hudRafId) {
+      cancelAnimationFrame(hudRafId);
+      hudRafId = null;
+    }
+    if (transitionHudPct) transitionHudPct.textContent = '100';
+    if (transitionHud) transitionHud.classList.remove('is-visible');
+  }
+
+  /* ---- Persistent Header / Footer / Nav Wire Sync ---- */
+  function setDrawerOpen(open) {
+    if (!mobileDrawer || !mobileToggle) return;
+    mobileDrawer.hidden = !open;
+    mobileDrawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+    mobileToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (mobileToggleLabel) mobileToggleLabel.textContent = open ? 'CLOSE' : 'MENU';
+    document.body.style.overflow = open ? 'hidden' : '';
+  }
+
+  if (mobileToggle) {
+    mobileToggle.addEventListener('click', () => {
+      const isOpen = mobileDrawer && !mobileDrawer.hidden;
+      setDrawerOpen(!isOpen);
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && mobileDrawer && !mobileDrawer.hidden) {
+      setDrawerOpen(false);
+      if (mobileToggle) mobileToggle.focus();
+    }
+  });
+
+  function syncNavWire(targetLink) {
+    if (!navActiveWire || !navMenu) return;
+    if (!targetLink || navMenu.offsetParent === null) {
+      navActiveWire.classList.remove('is-visible');
+      navActiveWire.style.transform = 'translate3d(0, 0, 0) scaleX(0)';
+      return;
+    }
+    navActiveWire.style.transform = `translate3d(${targetLink.offsetLeft}px, 0, 0) scaleX(${targetLink.offsetWidth})`;
+    navActiveWire.classList.add('is-visible');
+  }
+
+  function getActiveNavLink(route) {
+    return navLinks.find((link) => link.getAttribute('data-route') === route) || null;
+  }
+
+  if (navMenu && navActiveWire) {
+    navMenu.addEventListener('pointerover', (e) => {
+      const link = e.target.closest('.nav-link');
+      if (link) syncNavWire(link);
+    });
+    navMenu.addEventListener('pointerleave', () => {
+      syncNavWire(getActiveNavLink(currentRoute));
+    });
+  }
+
+  function updateChapterCounter(route, isForward, animate) {
+    const meta = ROUTE_CONFIG[route] || ROUTE_CONFIG.home;
+    if (!chapterPillTrack || !chapterPillNum || !chapterPillName) return;
+
+    if (chapterPillTimer) {
+      clearTimeout(chapterPillTimer);
+      chapterPillTimer = null;
+    }
+    chapterPillTrack.classList.remove('roll-out-up', 'roll-out-down', 'roll-prep-below', 'roll-prep-above');
+
+    if (!animate || isMotionReduced()) {
+      chapterPillNum.textContent = meta.num;
+      chapterPillName.textContent = meta.label;
+      return;
+    }
+
+    chapterPillTrack.classList.add(isForward ? 'roll-out-up' : 'roll-out-down');
+    chapterPillTimer = setTimeout(() => {
+      chapterPillNum.textContent = meta.num;
+      chapterPillName.textContent = meta.label;
+      chapterPillTrack.classList.remove('roll-out-up', 'roll-out-down');
+      chapterPillTrack.classList.add(isForward ? 'roll-prep-below' : 'roll-prep-above');
+      void chapterPillTrack.offsetWidth;
+      chapterPillTrack.classList.remove('roll-prep-below', 'roll-prep-above');
+      chapterPillTimer = null;
+    }, 160);
+  }
+
+  function syncPersistentChrome(route, isForward, animateCounter) {
+    const meta = ROUTE_CONFIG[route] || ROUTE_CONFIG.home;
+    const nextMeta = ROUTE_CONFIG[meta.next] || ROUTE_CONFIG.work;
+
+    navLinks.forEach((link) => {
+      const match = link.getAttribute('data-route') === route;
+      link.classList.toggle('active', match);
+      if (match) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
+
+    mobileLinks.forEach((link) => {
+      const match = link.getAttribute('data-route') === route;
+      link.classList.toggle('active', match);
+      if (match) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
+
+    if (footerNextLink) {
+      footerNextLink.setAttribute('href', nextMeta.hash);
+      footerNextLink.setAttribute('data-route', meta.next);
+      footerNextLink.setAttribute('data-transition', nextMeta.transition);
+      footerNextLink.textContent = `NEXT → ${nextMeta.label}`;
+    }
+
+    document.title = meta.title;
+    syncNavWire(getActiveNavLink(route));
+    updateChapterCounter(route, isForward, animateCounter);
+  }
+
+  /* ---- Post-Transition Page Content Stagger & Accessibility Focus ---- */
+  function focusPageHeading(plane) {
+    if (!plane) return;
+    const h1 = plane.querySelector('h1');
+    if (h1) {
+      try {
+        h1.focus({ preventScroll: true });
+      } catch (e) {
+        h1.focus();
+      }
+    }
+  }
+
+  function playPageContentEnter(plane, baseDelayMs = 0) {
+    if (!plane) return;
+    if (contentEnterTimer) {
+      clearTimeout(contentEnterTimer);
+      contentEnterTimer = null;
+    }
+
+    armRevealsForPlane(plane);
+
+    if (isMotionReduced()) {
+      plane.classList.remove('content-pre-enter', 'content-entering');
+      plane.style.removeProperty('--enter-base-delay');
+      return;
+    }
+
+    plane.style.setProperty('--enter-base-delay', `${baseDelayMs}ms`);
+    plane.classList.remove('content-pre-enter', 'content-entering');
+    void plane.offsetWidth;
+    plane.classList.add('content-entering');
+    plane.querySelectorAll('[data-decode="true"]').forEach((el) => runDecode(el));
+
+    contentEnterTimer = setTimeout(() => {
+      plane.classList.remove('content-entering');
+      plane.style.removeProperty('--enter-base-delay');
+      contentEnterTimer = null;
+    }, baseDelayMs + 950);
+  }
+
+  /* ==========================================
+     MODULAR DESTINATION TRANSITIONS REGISTRY
+     Each transition is a small standalone async function receiving:
+       { prevPlane, nextPlane, commitSwap, origin, destLabel }
+     ========================================== */
+
+  async function runViewTransition(styleName, commitSwap, extraCleanup) {
+    root.setAttribute('data-page-transition', styleName);
+    try {
+      const vt = document.startViewTransition(() => {
+        commitSwap();
+      });
+      await vt.finished.catch(() => {});
+    } finally {
+      root.removeAttribute('data-page-transition');
+      if (typeof extraCleanup === 'function') extraCleanup();
+    }
+  }
+
+  const TRANSITIONS = {
+    /* 1. -> Work: 4-panel vertical curtain wipe (60ms stagger, cover, swap, reveal = 980ms) */
+    async curtain({ nextPlane, commitSwap, destLabel }) {
+      if (!curtainOverlay || curtainPanels.length === 0) {
+        commitSwap(false, 'immediate');
+        return;
+      }
+
+      curtainOverlay.classList.add('is-active');
+      startTransitionHud(destLabel, 920);
+
+      try {
+        // Cover: 4 panels slide up from bottom 60ms apart (280 + 180 = 460ms)
+        const coverAnims = curtainPanels.map((panel, i) =>
+          panel.animate(
+            [
+              { transform: 'translate3d(0, 100%, 0)' },
+              { transform: 'translate3d(0, 0%, 0)' }
+            ],
+            {
+              duration: 280,
+              delay: i * 60,
+              easing: EASE_TRANSITION,
+              fill: 'forwards'
+            }
+          )
+        );
+        await Promise.all(coverAnims.map((a) => a.finished));
+
+        // Swap content & scroll to top while screen is covered; arm content stagger with zero flash
+        commitSwap(false, 'pre-enter');
+        await wait(60);
+
+        // Begin page content stagger as curtains lift away
+        playPageContentEnter(nextPlane, 90);
+
+        // Reveal: 4 panels slide away upward 60ms apart (280 + 180 = 460ms)
+        const revealAnims = curtainPanels.map((panel, i) =>
+          panel.animate(
+            [
+              { transform: 'translate3d(0, 0%, 0)' },
+              { transform: 'translate3d(0, -100%, 0)' }
+            ],
+            {
+              duration: 280,
+              delay: i * 60,
+              easing: EASE_TRANSITION,
+              fill: 'forwards'
+            }
+          )
+        );
+        await Promise.all(revealAnims.map((a) => a.finished));
+        coverAnims.forEach((a) => a.cancel());
+        revealAnims.forEach((a) => a.cancel());
+      } finally {
+        stopTransitionHud();
+        curtainOverlay.classList.remove('is-active');
+      }
+    },
+
+    /* 2. -> About: horizontal slide with parallax (old exits left faster, new enters right slower = 840ms) */
+    async slide({ prevPlane, nextPlane, commitSwap, destLabel }) {
+      startTransitionHud(destLabel, 840);
+      try {
+        if (typeof document.startViewTransition === 'function') {
+          await runViewTransition('slide', () => commitSwap(false, 280));
+          return;
+        }
+
+        // Web Animations API fallback
+        const prevScrollY = window.scrollY || 0;
+        const stageH = prevPlane ? prevPlane.offsetHeight : 0;
+        if (pageStage && stageH > 0) pageStage.style.minHeight = `${stageH}px`;
+
+        if (prevPlane) {
+          prevPlane.classList.add('waapi-outgoing');
+          prevPlane.style.top = `${-prevScrollY}px`;
+          prevPlane.style.zIndex = '2';
+        }
+
+        commitSwap(true, 280); // keep prevPlane visible during parallel parallax slide
+        nextPlane.style.zIndex = '1';
+
+        const anims = [];
+        if (prevPlane) {
+          anims.push(
+            prevPlane.animate(
+              [
+                { transform: 'translate3d(0, 0, 0)', opacity: 1 },
+                { transform: 'translate3d(-100%, 0, 0)', opacity: 1 }
+              ],
+              { duration: 840, easing: EASE_TRANSITION, fill: 'forwards' }
+            )
+          );
+        }
+        anims.push(
+          nextPlane.animate(
+            [
+              { transform: 'translate3d(36%, 0, 0)', opacity: 0.65 },
+              { transform: 'translate3d(0, 0, 0)', opacity: 1 }
+            ],
+            { duration: 840, easing: EASE_TRANSITION, fill: 'forwards' }
+          )
+        );
+
+        await Promise.all(anims.map((a) => a.finished));
+        anims.forEach((a) => a.cancel());
+      } finally {
+        if (prevPlane) {
+          prevPlane.classList.remove('waapi-outgoing');
+          prevPlane.style.top = '';
+          prevPlane.style.zIndex = '';
+          prevPlane.hidden = true;
+        }
+        if (nextPlane) nextPlane.style.zIndex = '';
+        if (pageStage) pageStage.style.minHeight = '';
+        stopTransitionHud();
+      }
+    },
+
+    /* 3. -> Field notes: clip-path circle expanding from click position or viewport center (840ms) */
+    async circle({ prevPlane, nextPlane, commitSwap, origin, destLabel }) {
+      const x = origin && Number.isFinite(origin.x) ? origin.x : window.innerWidth * 0.5;
+      const y = origin && Number.isFinite(origin.y) ? origin.y : window.innerHeight * 0.5;
+      const radius = Math.ceil(
+        Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
+      );
+
+      root.style.setProperty('--tx', `${Math.round(x)}px`);
+      root.style.setProperty('--ty', `${Math.round(y)}px`);
+      root.style.setProperty('--tr', `${radius}px`);
+
+      startTransitionHud(destLabel, 840);
+      try {
+        if (typeof document.startViewTransition === 'function') {
+          await runViewTransition('circle', () => commitSwap(false, 300));
+          return;
+        }
+
+        // Web Animations API fallback
+        const prevScrollY = window.scrollY || 0;
+        const stageH = prevPlane ? prevPlane.offsetHeight : 0;
+        if (pageStage && stageH > 0) pageStage.style.minHeight = `${stageH}px`;
+
+        if (prevPlane) {
+          prevPlane.classList.add('waapi-outgoing');
+          prevPlane.style.top = `${-prevScrollY}px`;
+          prevPlane.style.zIndex = '1';
+        }
+        commitSwap(true, 300);
+        nextPlane.style.zIndex = '3';
+
+        const rect = nextPlane.getBoundingClientRect();
+        const localX = Math.round(x - rect.left);
+        const localY = Math.round(y - rect.top);
+        const revealAnim = nextPlane.animate(
+          [
+            { clipPath: `circle(0px at ${localX}px ${localY}px)` },
+            { clipPath: `circle(${radius}px at ${localX}px ${localY}px)` }
+          ],
+          { duration: 840, easing: EASE_TRANSITION, fill: 'forwards' }
+        );
+        await revealAnim.finished;
+        revealAnim.cancel();
+      } finally {
+        if (prevPlane) {
+          prevPlane.classList.remove('waapi-outgoing');
+          prevPlane.style.top = '';
+          prevPlane.style.zIndex = '';
+          prevPlane.hidden = true;
+        }
+        if (nextPlane) nextPlane.style.zIndex = '';
+        if (pageStage) pageStage.style.minHeight = '';
+        stopTransitionHud();
+      }
+    },
+
+    /* 4. -> Contact (and Home): fade & scale (0.96 out -> 1.04 to 1 in = 820ms) */
+    async scale({ prevPlane, nextPlane, commitSwap, destLabel }) {
+      startTransitionHud(destLabel, 820);
+      try {
+        if (typeof document.startViewTransition === 'function') {
+          await runViewTransition('scale', () => commitSwap(false, 420));
+          return;
+        }
+
+        // Web Animations API fallback
+        if (prevPlane) {
+          const outAnim = prevPlane.animate(
+            [
+              { transform: 'scale(1)', opacity: 1 },
+              { transform: 'scale(0.96)', opacity: 0 }
+            ],
+            { duration: 380, easing: EASE_TRANSITION, fill: 'forwards' }
+          );
+          await outAnim.finished;
+          outAnim.cancel();
+        }
+
+        commitSwap(false, 40);
+
+        const inAnim = nextPlane.animate(
+          [
+            { transform: 'scale(1.04)', opacity: 0 },
+            { transform: 'scale(1)', opacity: 1 }
+          ],
+          { duration: 440, easing: EASE_TRANSITION, fill: 'forwards' }
+        );
+        await inAnim.finished;
+        inAnim.cancel();
+      } finally {
+        stopTransitionHud();
+      }
+    },
+
+    /* 5. Reduced Motion / Pause Animations: clean 150ms cross-fade */
+    async reduced({ prevPlane, nextPlane, commitSwap }) {
+      if (typeof document.startViewTransition === 'function') {
+        await runViewTransition('reduced', () => commitSwap(false, 'none'));
+        return;
+      }
+
+      if (prevPlane) {
+        const outAnim = prevPlane.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 75, easing: 'ease' });
+        await outAnim.finished;
+        outAnim.cancel();
+      }
+      commitSwap(false, 'none');
+      const inAnim = nextPlane.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 75, easing: 'ease' });
+      await inAnim.finished;
+      inAnim.cancel();
+    }
+  };
+
+  /* ---- Core Hash Router Navigation Controller ---- */
+  async function navigateToRoute(nextRoute, options = {}) {
+    const {
+      animate = true,
+      updateHash = true,
+      transitionOverride = null,
+      origin = null,
+      subAnchor = null
+    } = options;
+
+    const targetRoute = pagePlanes.has(nextRoute) ? nextRoute : 'home';
+
+    // Strict lock: ignore clicks while a transition is running
+    if (isTransitioning) return;
+
+    if (isIntroPlaying) {
+      endIntro(true);
+    }
+
+    setDrawerOpen(false);
+    resetBrackets();
+
+    if (targetRoute === currentRoute) {
+      if (subAnchor) {
+        const subEl = document.getElementById(subAnchor);
+        if (subEl) subEl.scrollIntoView({ behavior: isMotionReduced() ? 'auto' : 'smooth', block: 'start' });
+      } else {
+        window.scrollTo({ top: 0, behavior: isMotionReduced() ? 'auto' : 'smooth' });
+      }
+      return;
+    }
+
+    const prevRoute = currentRoute;
+    const prevPlane = prevRoute ? pagePlanes.get(prevRoute) : null;
+    const nextPlane = pagePlanes.get(targetRoute);
+    if (!nextPlane) return;
+
+    const destMeta = ROUTE_CONFIG[targetRoute] || ROUTE_CONFIG.home;
+    const prevIdx = prevRoute ? ROUTE_ORDER.indexOf(prevRoute) : -1;
+    const nextIdx = ROUTE_ORDER.indexOf(targetRoute);
+    const isForward = prevIdx === -1 || nextIdx >= prevIdx;
+
+    if (updateHash && window.location.hash !== destMeta.hash) {
+      try {
+        history.pushState({ route: targetRoute }, '', destMeta.hash);
+      } catch (e) {
+        window.location.hash = destMeta.hash;
+      }
+    }
+
+    // Core DOM swap executed at the covered/transition moment
+    const commitSwap = (keepPrevMounted = false, contentEnterMode = 'none') => {
+      pagePlanes.forEach((plane, name) => {
+        if (name === targetRoute) {
+          plane.hidden = false;
+          plane.classList.add('is-active');
+        } else if (keepPrevMounted && name === prevRoute) {
+          plane.hidden = false;
+          plane.classList.remove('is-active');
         } else {
-          card.style.opacity = '0';
-          card.style.transform = 'translateY(16px)';
-          const timer = setTimeout(() => {
-            card.style.display = 'none';
-          }, 260);
-          cardTimers.set(card, timer);
+          plane.hidden = true;
+          plane.classList.remove('is-active', 'content-pre-enter', 'content-entering');
+          plane.style.removeProperty('--enter-base-delay');
         }
       });
+
+      currentRoute = targetRoute;
+      isHomeRouteActive = targetRoute === 'home';
+
+      window.scrollTo(0, 0);
+      syncPersistentChrome(targetRoute, isForward, animate && Boolean(prevPlane));
+
+      if (targetRoute === 'work') {
+        activateWorkRow(activeProjectId || 'driveease', false, true);
+      }
+      syncTicker();
+      if (heroWireframe) heroWireframe.sync();
+
+      // Synchronize post-transition content entrance with zero blink
+      if (contentEnterMode === 'pre-enter') {
+        nextPlane.classList.remove('content-entering');
+        nextPlane.classList.add('content-pre-enter');
+      } else if (typeof contentEnterMode === 'number') {
+        playPageContentEnter(nextPlane, contentEnterMode);
+      } else if (contentEnterMode === 'immediate') {
+        playPageContentEnter(nextPlane, 0);
+      } else {
+        armRevealsForPlane(nextPlane);
+      }
+    };
+
+    // Initial boot (no transition)
+    if (!animate || !prevPlane) {
+      commitSwap(false, 'none');
+      requestAnimationFrame(() => {
+        refreshAllLayout();
+        if (subAnchor) {
+          const subEl = document.getElementById(subAnchor);
+          if (subEl) subEl.scrollIntoView({ behavior: 'auto', block: 'start' });
+        }
+      });
+      return;
+    }
+
+    // Choose transition style strictly from DESTINATION (or data-transition attribute)
+    const styleKey = isMotionReduced()
+      ? 'reduced'
+      : TRANSITIONS[transitionOverride]
+        ? transitionOverride
+        : destMeta.transition;
+    const runTransition = TRANSITIONS[styleKey] || TRANSITIONS.scale;
+
+    isTransitioning = true;
+    root.classList.add('is-transitioning');
+
+    try {
+      await runTransition({
+        prevPlane,
+        nextPlane,
+        commitSwap,
+        origin,
+        destLabel: destMeta.hudLabel
+      });
+
+      // Accessibility: focus the new page's main heading after reveal
+      focusPageHeading(nextPlane);
+      refreshAllLayout();
+
+      if (subAnchor) {
+        const subEl = document.getElementById(subAnchor);
+        if (subEl) subEl.scrollIntoView({ behavior: isMotionReduced() ? 'auto' : 'smooth', block: 'start' });
+      }
+    } finally {
+      nextPlane.classList.remove('content-pre-enter');
+      isTransitioning = false;
+      root.classList.remove('is-transitioning');
+
+      // Reconcile if browser back/forward changed the hash while locked
+      if (deferredHashSync) {
+        deferredHashSync = false;
+        const latest = resolveHash(window.location.hash);
+        if (latest.route !== currentRoute) {
+          navigateToRoute(latest.route, {
+            animate: true,
+            updateHash: false,
+            origin: null,
+            subAnchor: latest.subAnchor
+          });
+        }
+      }
+    }
+  }
+
+  // Intercept clicks on all internal navigation links & Next links
+  document.addEventListener('click', (e) => {
+    const link = e.target.closest('a[data-route], a[href^="#"]');
+    if (!link) return;
+    if (link.classList.contains('skip-link')) return;
+
+    const href = link.getAttribute('href') || '';
+    const explicitRoute = link.getAttribute('data-route');
+    const transitionAttr = link.getAttribute('data-transition');
+
+    let targetRoute = explicitRoute;
+    let subAnchor = null;
+
+    if (!targetRoute && href.startsWith('#')) {
+      const resolved = resolveHash(href);
+      targetRoute = resolved.route;
+      subAnchor = resolved.subAnchor;
+    }
+    if (!targetRoute || !pagePlanes.has(targetRoute)) return;
+
+    e.preventDefault();
+    if (isTransitioning) return;
+
+    // Capture exact pointer click position; use viewport center if keyboard-triggered
+    const isKeyboardTrigger = e.detail === 0 || (e.clientX === 0 && e.clientY === 0);
+    const origin = isKeyboardTrigger
+      ? { x: window.innerWidth * 0.5, y: window.innerHeight * 0.5 }
+      : { x: e.clientX, y: e.clientY };
+
+    navigateToRoute(targetRoute, {
+      animate: true,
+      updateHash: true,
+      transitionOverride: transitionAttr || null,
+      origin,
+      subAnchor
     });
   });
 
+  // Browser Back & Forward buttons trigger the destination page's transition
+  function handleHistoryChange() {
+    if (isTransitioning) {
+      deferredHashSync = true;
+      return;
+    }
+    const resolved = resolveHash(window.location.hash);
+    if (resolved.route !== currentRoute) {
+      navigateToRoute(resolved.route, {
+        animate: true,
+        updateHash: false,
+        origin: { x: window.innerWidth * 0.5, y: window.innerHeight * 0.5 },
+        subAnchor: resolved.subAnchor
+      });
+    }
+  }
+
+  window.addEventListener('popstate', handleHistoryChange);
+  window.addEventListener('hashchange', handleHistoryChange);
+
+  if (backToTopBtn) {
+    backToTopBtn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: isMotionReduced() ? 'auto' : 'smooth' });
+    });
+  }
+
   /* ==========================================
-     8B. EDUCATION RESULTS ACCORDION TOGGLE
+     11. SKILLS FILTERING, FIELD NOTES & EDUCATION ACCORDIONS
      ========================================== */
-  document.querySelectorAll('.grade-toggle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+  const filterBar = document.querySelector('.skill-filter-bar');
+  const filterTabs = Array.from(document.querySelectorAll('.filter-tab'));
+  const skillRows = Array.from(document.querySelectorAll('.skill-row'));
+
+  if (filterBar) {
+    filterBar.addEventListener('click', (e) => {
+      const tab = e.target.closest('.filter-tab');
+      if (!tab) return;
+      const filter = tab.getAttribute('data-filter');
+
+      filterTabs.forEach((btn) => {
+        const isCurr = btn === tab;
+        btn.classList.toggle('active', isCurr);
+        btn.setAttribute('aria-selected', isCurr ? 'true' : 'false');
+      });
+
+      let visibleIdx = 0;
+      skillRows.forEach((row) => {
+        const grp = row.getAttribute('data-skill-group');
+        const show = filter === 'all' || grp === filter;
+        row.classList.toggle('is-hidden', !show);
+        row.classList.remove('filter-enter');
+        if (show) {
+          row.classList.add('reveal-visible');
+          if (!isMotionReduced()) {
+            row.style.setProperty('--filter-delay', `${Math.min(visibleIdx * 45, 180)}ms`);
+            void row.offsetWidth;
+            row.classList.add('filter-enter');
+          }
+          visibleIdx++;
+        }
+      });
+
+      requestAnimationFrame(refreshAllLayout);
+    });
+  }
+
+  // Expandable Field Notes stream
+  const notesStream = document.querySelector('.notes-stream');
+  if (notesStream) {
+    notesStream.querySelectorAll('.note-expand-panel').forEach((panel) => {
+      if ('inert' in panel) panel.inert = true;
+    });
+
+    notesStream.addEventListener('click', (e) => {
+      const btn = e.target.closest('.note-row-trigger');
+      if (!btn) return;
+      const row = btn.closest('.note-row');
       const panelId = btn.getAttribute('aria-controls');
       const panel = panelId ? document.getElementById(panelId) : null;
       if (!panel) return;
-      const isExpanded = btn.getAttribute('aria-expanded') === 'true';
-      btn.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
-      panel.hidden = isExpanded;
+      const nextExpanded = btn.getAttribute('aria-expanded') !== 'true';
+      btn.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
+      if (row) row.classList.toggle('is-open', nextExpanded);
+      panel.classList.toggle('is-open', nextExpanded);
+      panel.setAttribute('aria-hidden', nextExpanded ? 'false' : 'true');
+      if ('inert' in panel) panel.inert = !nextExpanded;
+      setTimeout(refreshAllLayout, 360);
     });
-  });
+  }
+
+  // Academic grade breakdowns
+  const academicStream = document.querySelector('.academic-stream');
+  if (academicStream) {
+    academicStream.querySelectorAll('.timeline-results-panel').forEach((panel) => {
+      if ('inert' in panel) panel.inert = true;
+    });
+
+    academicStream.addEventListener('click', (e) => {
+      const btn = e.target.closest('.grade-toggle-btn');
+      if (!btn) return;
+      const panelId = btn.getAttribute('aria-controls');
+      const panel = panelId ? document.getElementById(panelId) : null;
+      if (!panel) return;
+      const nextExpanded = btn.getAttribute('aria-expanded') !== 'true';
+      btn.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
+      panel.classList.toggle('is-open', nextExpanded);
+      panel.setAttribute('aria-hidden', nextExpanded ? 'false' : 'true');
+      if ('inert' in panel) panel.inert = !nextExpanded;
+      setTimeout(refreshAllLayout, 380);
+    });
+  }
 
   /* ==========================================
-     9. CONTACT FORM SUBMISSION HANDLER (WhatsApp & Gmail)
+     12. CONTACT FORM DISPATCH (WHATSAPP & GMAIL)
      ========================================== */
   const contactForm = document.getElementById('contactForm');
   const formStatus = document.getElementById('formStatus');
-  const methodOptions = document.querySelectorAll('.method-option');
+  const sendMethodGroup = document.querySelector('.send-method-toggle');
+  const methodOptions = Array.from(document.querySelectorAll('.method-option'));
 
-  methodOptions.forEach(option => {
-    option.addEventListener('click', () => {
-      methodOptions.forEach(opt => opt.classList.remove('active'));
-      option.classList.add('active');
-      const radio = option.querySelector('input[type="radio"]');
-      if (radio) radio.checked = true;
+  function syncMethodSelection() {
+    methodOptions.forEach((opt) => {
+      const radio = opt.querySelector('input[type="radio"]');
+      opt.classList.toggle('active', Boolean(radio && radio.checked));
     });
-  });
+  }
+
+  if (sendMethodGroup) {
+    sendMethodGroup.addEventListener('change', syncMethodSelection);
+    sendMethodGroup.addEventListener('click', (e) => {
+      const opt = e.target.closest('.method-option');
+      if (!opt) return;
+      const radio = opt.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+      syncMethodSelection();
+    });
+  }
 
   if (contactForm) {
     contactForm.addEventListener('submit', (e) => {
       e.preventDefault();
-
       const name = document.getElementById('name').value.trim();
       const email = document.getElementById('email').value.trim();
       const subject = document.getElementById('subject').value.trim();
       const message = document.getElementById('message').value.trim();
-
-      const selectedMethodRadio = document.querySelector('input[name="sendMethod"]:checked');
-      const sendMethod = selectedMethodRadio ? selectedMethodRadio.value : 'whatsapp';
+      const selectedRadio = document.querySelector('input[name="sendMethod"]:checked');
+      const sendMethod = selectedRadio ? selectedRadio.value : 'whatsapp';
 
       const submitBtn = contactForm.querySelector('button[type="submit"]');
-      const originalText = submitBtn.innerHTML;
+      const originalHtml = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'DISPATCHING...';
+      }
 
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Preparing...';
-
-      const formattedMessage = `Hi Viraj,\n\n*Name:* ${name}\n*Email:* ${email}\n*Subject:* ${subject}\n\n*Message:*\n${message}`;
+      const formatted = `Hi Viraj,\n\n*Name:* ${name}\n*Email:* ${email}\n*Subject:* ${subject}\n\n*Message:*\n${message}`;
 
       setTimeout(() => {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalHtml;
+        }
         if (sendMethod === 'whatsapp') {
-          const whatsappNumber = '9476926251';
-          const waUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(formattedMessage)}`;
-
-          formStatus.className = 'form-status success';
-          formStatus.innerHTML = `<i class="fa-brands fa-whatsapp"></i> Opening WhatsApp to send message to <strong>+9476926251</strong>...`;
-
-          window.open(waUrl, '_blank');
+          const waUrl = `https://wa.me/9476926251?text=${encodeURIComponent(formatted)}`;
+          if (formStatus) {
+            formStatus.className = 'form-status eyebrow success';
+            formStatus.textContent = 'OPENING WHATSAPP FOR +9476926251...';
+          }
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
         } else {
-          const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=virajwills2003@gmail.com&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(formattedMessage)}`;
-          const mailtoUrl = `mailto:virajwills2003@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(formattedMessage)}`;
-
-          formStatus.className = 'form-status success';
-          formStatus.innerHTML = `<i class="fa-solid fa-envelope"></i> Opening Gmail to send message to <strong>virajwills2003@gmail.com</strong>...`;
-
-          window.open(gmailUrl, '_blank') || window.location.assign(mailtoUrl);
+          const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=virajwills2003@gmail.com&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(formatted)}`;
+          const mailtoUrl = `mailto:virajwills2003@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(formatted)}`;
+          if (formStatus) {
+            formStatus.className = 'form-status eyebrow success';
+            formStatus.textContent = 'OPENING GMAIL FOR VIRAJWILLS2003@GMAIL.COM...';
+          }
+          const win = window.open(gmailUrl, '_blank', 'noopener,noreferrer');
+          if (!win) window.location.assign(mailtoUrl);
         }
 
         contactForm.reset();
-
+        syncMethodSelection();
         setTimeout(() => {
-          formStatus.innerHTML = '';
-        }, 8000);
-      }, 450);
+          if (formStatus) {
+            formStatus.textContent = '';
+            formStatus.className = 'form-status eyebrow';
+          }
+        }, 7000);
+      }, 300);
     });
+  }
+
+  /* ==========================================
+     13. INITIAL ROUTE BOOT & LAYOUT SYNC
+     ========================================== */
+  function refreshAllLayout() {
+    const activePlane = currentRoute ? pagePlanes.get(currentRoute) : null;
+    if (activePlane) rebuildSignalTicksForPlane(activePlane);
+    updateSignalRail();
+    syncNavWire(getActiveNavLink(currentRoute));
+    if (heroWireframe) heroWireframe.sync();
+    if (currentRoute === 'work' && !desktopSplitQuery.matches && activeProjectId) {
+      const row = workRows.find((r) => r.getAttribute('data-project-id') === activeProjectId);
+      const inlineSlot = row ? row.querySelector('.work-row-inline') : null;
+      if (inlineSlot && !inlineSlot.innerHTML.trim()) {
+        inlineSlot.innerHTML = buildPreviewMarkup(PROJECTS[activeProjectId], false);
+      }
+    }
+  }
+
+  const rawInitialHash = (window.location.hash || '').trim();
+  const hasExplicitDeepHash = rawInitialHash !== '' && rawInitialHash !== '#' && rawInitialHash !== '#/';
+  const initial = hasExplicitDeepHash ? resolveHash(rawInitialHash) : { route: 'home', subAnchor: null };
+
+  if (!hasExplicitDeepHash && window.location.hash !== '#/') {
+    try {
+      history.replaceState({ route: 'home' }, '', '#/');
+    } catch (e) {
+      /* ignore replaceState restrictions */
+    }
+  }
+
+  navigateToRoute(initial.route, {
+    animate: false,
+    updateHash: false,
+    subAnchor: initial.subAnchor
+  });
+
+  // Launch full-screen monochrome warp intro (hands off smoothly to Home or deep-linked route)
+  runIntroTimeline(initial.route);
+
+  if (document.fonts && typeof document.fonts.ready === 'object') {
+    document.fonts.ready.then(refreshAllLayout);
+  }
+
+  let resizeTimer = null;
+  window.addEventListener(
+    'resize',
+    () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        syncStarViewport();
+        refreshAllLayout();
+      }, 100);
+    },
+    { passive: true }
+  );
+
+  if ('ResizeObserver' in window) {
+    let bodyRaf = null;
+    const obs = new ResizeObserver(() => {
+      if (!bodyRaf) {
+        bodyRaf = requestAnimationFrame(() => {
+          bodyRaf = null;
+          const activePlane = currentRoute ? pagePlanes.get(currentRoute) : null;
+          if (activePlane) rebuildSignalTicksForPlane(activePlane);
+          updateSignalRail();
+        });
+      }
+    });
+    obs.observe(document.body);
   }
 });

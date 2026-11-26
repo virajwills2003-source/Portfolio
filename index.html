@@ -3,1203 +3,1366 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>J.H.P.W. Viraj — Software & Web Developer Portfolio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>J.H.P.W. Viraj — Software &amp; Web Developer</title>
   <meta name="description"
-    content="Portfolio of J.H.P.W. Viraj - HND in Information Technology Student, Software & Web Developer, specializing in Java, PHP, Laravel, JavaScript, SQL, C#, and Computer Networking.">
+    content="Portfolio of J.H.P.W. Viraj — HND in Information Technology student at SLIATE, software and web developer specializing in Java, Python, PHP, Laravel, JavaScript, SQL, C#, and computer networking.">
   <meta name="keywords"
-    content="Viraj, Developer Portfolio, HND IT, SLIATE, Software Developer, Web Developer, PHP, Laravel, Java, SQL, Batticaloa, Sri Lanka">
+    content="J.H.P.W. Viraj, Viraj, Software Developer, Web Developer, HND IT, SLIATE, Python, PHP, Laravel, Java, SQL, C#, Apache NetBeans, Networking, Batticaloa, Sri Lanka">
+  <meta name="author" content="J.H.P.W. Viraj">
+  <meta name="theme-color" content="#000000" id="themeColorMeta">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="J.H.P.W. Viraj — Software &amp; Web Developer">
+  <meta property="og:description"
+    content="HND in Information Technology student at SLIATE — building full-stack web applications, database systems, and secure computer networking infrastructure.">
+  <meta property="og:image" content="./avatar-360.jpg">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="J.H.P.W. Viraj — Software &amp; Web Developer">
+  <meta name="twitter:description"
+    content="Full-stack web developer, DBMS &amp; computer networking enthusiast from Batticaloa, Sri Lanka.">
+  <link rel="icon" type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23000'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' fill='%23fff' font-family='monospace' font-size='28' font-weight='700'%3EJV%3C/text%3E%3C/svg%3E">
 
-  <!-- Google Fonts: Outfit & Fira Code -->
+  <!-- Prevent theme flash & arm first-load warp intro before first paint -->
+  <script>
+    (function () {
+      var docEl = document.documentElement;
+      try {
+        var savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'light') {
+          docEl.setAttribute('data-theme', 'light');
+          docEl.classList.add('light-theme');
+          var m = document.getElementById('themeColorMeta');
+          if (m) m.setAttribute('content', '#f5f5f5');
+        }
+        var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var paused = localStorage.getItem('motionPaused') === 'true';
+        var conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        var saveData = Boolean(conn && conn.saveData);
+        if (paused) docEl.setAttribute('data-motion', 'paused');
+        if (!reduced && !paused && !saveData) {
+          docEl.classList.add('intro-active');
+          window.__introFailsafe = setTimeout(function () {
+            docEl.classList.remove('intro-active');
+            var el = document.getElementById('cockpitIntro');
+            if (el && el.parentNode) el.parentNode.removeChild(el);
+          }, 5500);
+        }
+      } catch (e) {
+        docEl.classList.remove('intro-active');
+      }
+    })();
+  </script>
+  <noscript>
+    <style>
+      .cockpit-intro, .ambient-star-canvas { display: none !important; }
+      .page-plane[hidden] { display: block !important; }
+    </style>
+  </noscript>
+
+  <!-- Variable Fonts: Archivo (wdth + 900) & Geist Mono with display=swap for instant mobile text paint -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-  <link rel="dns-prefetch" href="https://images.unsplash.com">
   <link
-    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62.5..125,400..900&family=Geist+Mono:wght@400;500;600&display=swap"
     rel="stylesheet">
 
-  <!-- Font Awesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-  <!-- Custom Styles -->
-  <link rel="stylesheet" href="style.css">
+  <!-- Production minified stylesheet (source: ./style.css) -->
+  <link rel="stylesheet" href="./style.v7.min.css">
 </head>
 
 <body>
+  <!-- Persistent Low-Opacity Ambient Starfield Layer (Behind Page After Intro) -->
+  <canvas class="ambient-star-canvas" id="ambientStarCanvas" aria-hidden="true"></canvas>
 
-  <!-- ===== GATE OPENING ANIMATION OVERLAY ===== -->
-  <div class="gate-overlay-wrapper" id="gateOverlay">
-    <div class="gate-panel gate-panel-left" id="gateLeft">
-      <div class="gate-seam-glow-left"></div>
-    </div>
-    <div class="gate-panel gate-panel-right" id="gateRight">
-      <div class="gate-seam-glow-right"></div>
-    </div>
-    <div class="gate-emblem-center" id="gateEmblem">
-      <div class="gate-emblem-ring">
-        <i class="fa-solid fa-code"></i>
+  <!-- Opening Intro: Full-Screen Deep-Space Warp Sequence (Removed From DOM On Finish) -->
+  <div class="cockpit-intro" id="cockpitIntro" role="region" aria-label="Full-screen starfield opening intro">
+    <canvas class="cockpit-canvas" id="cockpitCanvas" aria-hidden="true"></canvas>
+
+    <!-- Minimal Floating Mono Telemetry HUD (Full-Screen, No Windshield Frame) -->
+    <div class="cockpit-frame-layer" id="cockpitFrameLayer" aria-hidden="true">
+      <div class="cockpit-hud">
+        <div class="cockpit-hud-group cockpit-hud-left">
+          <div class="cockpit-leds">
+            <span class="cockpit-led is-lit" title="System"></span>
+            <span class="cockpit-led is-blink" title="Nav"></span>
+            <span class="cockpit-led is-blink-fast" id="cockpitWarpLed" title="Warp"></span>
+          </div>
+          <div class="cockpit-hud-stack">
+            <span class="cockpit-hud-kicker">NAV // JV-01</span>
+            <span class="cockpit-hud-status" id="cockpitStatusText">SYSTEMS ONLINE</span>
+          </div>
+        </div>
+
+        <div class="cockpit-hud-group cockpit-hud-center">
+          <div class="cockpit-speed-block">
+            <span class="cockpit-hud-kicker">VELOCITY</span>
+            <span class="cockpit-speed-val" id="cockpitSpeedVal">0.00c</span>
+          </div>
+          <div class="cockpit-throttle-block">
+            <div class="cockpit-throttle-head">
+              <span class="cockpit-hud-kicker">00-INGEST ABOUT</span>
+              <span class="cockpit-hud-kicker cockpit-ingest-pct" id="cockpitThrottlePct">000 / 100</span>
+            </div>
+            <div class="cockpit-throttle-track">
+              <span class="cockpit-throttle-fill" id="cockpitThrottleFill"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="cockpit-hud-group cockpit-hud-right">
+          <div class="cockpit-hud-stack cockpit-hud-align-right">
+            <span class="cockpit-hud-kicker" id="cockpitVectorText">HDG +00 / +00</span>
+            <span class="cockpit-hud-dest" id="cockpitDestText">DEST // 00 HOME</span>
+          </div>
+        </div>
       </div>
-      <span class="gate-text">PORTFOLIO</span>
-      <div class="armoury-scroll-indicator gate-scroll-indicator">
-        <div class="scroll-line"></div>
-        <span>SCROLL TO OPEN</span>
-      </div>
+    </div>
+
+    <!-- Always-Accessible Skip Intro Control -->
+    <button type="button" class="cockpit-skip-btn eyebrow" id="cockpitSkipBtn" aria-label="Skip opening intro">
+      <span>SKIP INTRO</span>
+      <span class="cockpit-skip-key">[ESC]</span>
+    </button>
+  </div>
+
+  <!-- 4-Panel Staggered Vertical Curtain Layer (Destination: Work) -->
+  <div class="curtain-overlay" id="curtainOverlay" aria-hidden="true">
+    <div class="curtain-panel"></div>
+    <div class="curtain-panel"></div>
+    <div class="curtain-panel"></div>
+    <div class="curtain-panel"></div>
+  </div>
+
+  <!-- Minimal Mono Transition Status Label (Destination + 0 -> 100 Progress) -->
+  <div class="transition-hud" id="transitionHud" aria-hidden="true">
+    <div class="transition-hud-pill">
+      <span class="eyebrow transition-hud-dest" id="transitionHudDest">→ WORK</span>
+      <span class="transition-hud-sep" aria-hidden="true">/</span>
+      <span class="eyebrow transition-hud-pct" id="transitionHudPct">000</span>
     </div>
   </div>
 
-  <!-- Ambient Glow Background Canvas -->
-  <div class="ambient-glow bg-glow-1"></div>
-  <div class="ambient-glow bg-glow-2"></div>
-  <div class="ambient-glow bg-glow-3"></div>
+  <!-- Fixed Left-Edge Scroll Telemetry Rail (Desktop >= 1024px) -->
+  <div class="signal-line" id="signalLine" aria-hidden="true">
+    <span class="signal-line-readout" id="signalReadout">000</span>
+    <span class="signal-line-track" id="signalTrack">
+      <span class="signal-line-packet" id="signalPacket"></span>
+    </span>
+  </div>
 
-  <!-- ===== NAVBAR ===== -->
-  <header class="navbar-header" id="navbar">
-    <div class="nav-container">
-      <a href="#hero" class="nav-brand">
-        <span class="brand-code">&lt;Viraj /&gt;</span>
+  <!-- Magnetic Corner Viewfinder Brackets (Desktop Fine Pointer) -->
+  <div class="cursor-brackets" id="cursorBrackets" aria-hidden="true">
+    <span class="bracket-tl"></span>
+    <span class="bracket-tr"></span>
+    <span class="bracket-bl"></span>
+    <span class="bracket-br"></span>
+  </div>
+
+  <a class="skip-link" href="#main-content">Skip to content</a>
+
+  <!-- ===== PERSISTENT HEADER ===== -->
+  <header class="site-header page-gutter" id="navbar">
+    <div class="header-brand-group">
+      <a href="#/" class="brand-link editorial-link" data-route="home" data-transition="scale"
+        aria-label="J.H.P.W. Viraj — Home">
+        <span class="brand-text">Viraj J.</span>
+        <span class="brand-square" aria-hidden="true"></span>
       </a>
+      <div class="header-chapter-pill eyebrow" id="headerChapterPill" aria-live="polite" aria-atomic="true">
+        <span class="chapter-pill-sep text-muted" aria-hidden="true">/</span>
+        <span class="chapter-pill-viewport">
+          <span class="chapter-pill-track" id="chapterPillTrack">
+            <span class="chapter-pill-num" id="chapterPillNum">00</span>
+            <span class="chapter-pill-total text-muted">/04</span>
+            <span class="chapter-pill-dash text-muted" aria-hidden="true">—</span>
+            <span class="chapter-pill-name" id="chapterPillName">HOME</span>
+          </span>
+        </span>
+      </div>
+    </div>
 
-      <!-- Desktop Links -->
-      <nav class="nav-menu" id="navMenu">
-        <a href="#hero" class="nav-link active"><i class="fa-solid fa-house"></i> Home</a>
-        <a href="#about" class="nav-link"><i class="fa-solid fa-user"></i> About</a>
-        <a href="#skills" class="nav-link"><i class="fa-solid fa-code"></i> Skills</a>
-        <a href="#projects" class="nav-link"><i class="fa-solid fa-folder-open"></i> Projects</a>
-        <a href="#networking" class="nav-link"><i class="fa-solid fa-network-wired"></i> Networking</a>
-        <a href="#education" class="nav-link"><i class="fa-solid fa-graduation-cap"></i> Education</a>
-        <a href="#contact" class="nav-link nav-btn"><i class="fa-solid fa-paper-plane"></i> Contact</a>
+    <div class="header-right">
+      <nav class="site-nav" id="navMenu" aria-label="Main navigation">
+        <a href="#/" class="nav-link editorial-link" data-route="home" data-transition="scale">Home</a>
+        <a href="#/work" class="nav-link editorial-link" data-route="work" data-transition="curtain">Work</a>
+        <a href="#/about" class="nav-link editorial-link" data-route="about" data-transition="slide">About</a>
+        <a href="#/notes" class="nav-link editorial-link" data-route="notes" data-transition="circle">Field notes</a>
+        <a href="#/contact" class="nav-link editorial-link" data-route="contact" data-transition="scale">Contact</a>
+        <span class="nav-active-wire" id="navActiveWire" aria-hidden="true"></span>
       </nav>
 
-      <!-- Mobile Hamburger -->
-      <button class="mobile-toggle" id="mobileToggle" type="button" aria-label="Toggle navigation"
-        aria-controls="navMenu"><i class="fa-solid fa-bars"></i></button>
-      <button id="themeToggle" class="theme-toggle btn btn-icon" aria-label="Toggle theme"><i
-          class="fa-solid fa-moon"></i></button>
+      <button id="themeToggle" class="theme-toggle eyebrow" type="button" aria-label="Switch to light theme"
+        aria-pressed="false" data-bracket>
+        <span class="theme-toggle-glyph" aria-hidden="true"></span>
+        <span class="theme-toggle-dark" id="themeLabelDark">DARK</span>
+        <span class="theme-toggle-light" id="themeLabelLight">LIGHT</span>
+      </button>
+
+      <button class="menu-button eyebrow" id="mobileToggle" type="button" aria-label="Toggle navigation menu"
+        aria-controls="mobileDrawer" aria-expanded="false" data-bracket>
+        <span id="mobileToggleLabel">MENU</span>
+      </button>
     </div>
   </header>
 
-  <main>
-    <!-- ===== SCROLLYTELLING HERO SECTION ===== -->
-    <div id="hero" class="scrolly-section-wrapper">
-      <div class="scrolly-sticky-viewport">
-        <!-- 60FPS Interactive Canvas Background Engine -->
-        <canvas id="scrollyCanvas"></canvas>
-        <div class="canvas-grid-overlay"></div>
+  <!-- Mobile Navigation Overlay -->
+  <div class="mobile-drawer" id="mobileDrawer" aria-hidden="true" hidden>
+    <nav class="mobile-drawer-nav page-gutter" aria-label="Mobile navigation">
+      <a href="#/" class="mobile-drawer-link" data-route="home" data-transition="scale"><span class="eyebrow">00</span><span>Home</span></a>
+      <a href="#/work" class="mobile-drawer-link" data-route="work" data-transition="curtain"><span class="eyebrow">01</span><span>Work</span></a>
+      <a href="#/about" class="mobile-drawer-link" data-route="about" data-transition="slide"><span class="eyebrow">02</span><span>About</span></a>
+      <a href="#/notes" class="mobile-drawer-link" data-route="notes" data-transition="circle"><span class="eyebrow">03</span><span>Field notes</span></a>
+      <a href="#/contact" class="mobile-drawer-link" data-route="contact" data-transition="scale"><span class="eyebrow">04</span><span>Contact</span></a>
+    </nav>
+  </div>
 
-        <!-- Dynamic Parallax Stages Container -->
-        <div class="scrolly-stage-container container">
+  <!-- ===== SINGLE-FILE MULTI-PAGE STAGE (ONE ROUTE VISIBLE AT A TIME) ===== -->
+  <main id="main-content" class="page-stage">
 
-          <!-- Stage 1: Hero Identity & Core Title (Armoury Crate Style Opening Screen) -->
-          <div class="scrolly-stage stage-1 active" id="scrollyStage1">
-            <div class="hero-brand-center">
-              <!-- Round Shape Glowing Logo/Avatar Container -->
-              <div class="brand-logo-frame">
-                <div class="brand-logo-glow"></div>
-                <img src="avatar-360.jpg" alt="J.H.P.W. Viraj Profile" class="brand-avatar-img" width="175" height="175"
-                  decoding="async" fetchpriority="high">
-              </div>
+    <!-- ==========================================================
+         ROUTE #/ — HOME (Editorial Intro + Portfolio Summary)
+         ========================================================== -->
+    <div class="page-plane is-active" id="page-home" data-page="home">
+      <section id="hero" class="hero" data-tick aria-label="J.H.P.W. Viraj — Software &amp; Web Developer">
+        <div class="hero-cinematic-host" aria-hidden="true">
+          <canvas class="hero-canvas" id="heroCanvas"></canvas>
+        </div>
 
-              <!-- Main Title in Armoury Crate Style Typography -->
-              <h1 class="brand-title">MY PORTFOLIO</h1>
-              <p class="brand-subtitle">J.H.P.W. VIRAJ — SOFTWARE & WEB DEVELOPER</p>
-
-              <!-- Dynamic Typing Container -->
-              <div class="typing-container">
-                <span class="typing-icon"><i class="fa-solid fa-terminal"></i></span>
-                <span class="typing-text" id="typingText"></span><span class="cursor">&nbsp;</span>
-              </div>
-            </div>
+        <div class="hero-inner page-gutter">
+          <div class="hero-top-meta">
+            <p class="eyebrow text-muted" data-decode="true">J.H.P.W. VIRAJ / SOFTWARE &amp; WEB DEVELOPER</p>
+            <span class="eyebrow text-muted hero-availability">
+              <span class="live-square" aria-hidden="true"></span>
+              AVAILABLE FOR PROJECTS
+            </span>
           </div>
 
-          <!-- Stage 2: Hero Intro & Developer Profile Card (Full-Screen Sentence-by-Sentence Scroll) -->
-          <div class="scrolly-stage stage-2" id="scrollyStage2">
-            <div class="hud-card glass-hud hero-intro-scrolly-hud">
-              <div class="hero-sentence hero-badge text-center-inline">
-                <span class="pulse-dot"></span> Available for Projects &amp; Collaborations
-              </div>
+          <h1 class="hero-title" data-chapter="true">
+            <span class="intro-line-mask"><span class="hero-line">SYSTEMS.</span></span>
+            <span class="intro-line-mask"><span class="hero-line">IN MOTION.</span></span>
+          </h1>
 
-              <h1 class="hero-sentence hero-title">
-                Hi 👋, I'm <span class="text-gradient">J.H.P.W. Viraj</span>
-              </h1>
+          <div class="hero-bottom-bar">
+            <div class="hero-cta-group">
+              <a href="#/work" class="hero-scroll-cta editorial-link" data-route="work" data-transition="curtain"
+                data-bracket>
+                <span class="cta-arrow-down" aria-hidden="true">↓</span>
+                <span>Selected work</span>
+              </a>
+              <a href="#/about" class="hero-scroll-cta editorial-link text-muted" data-route="about"
+                data-transition="slide" data-bracket>
+                <span class="cta-arrow-down" aria-hidden="true">→</span>
+                <span>About me</span>
+              </a>
+            </div>
 
-              <h2 class="hero-sentence hero-subtitle">
-                💻 HND in Information Technology Student | Software &amp; Web Developer
-              </h2>
-
-              <p class="hero-sentence hero-description">
-                Passionate about building robust backend solutions, full-stack web applications, database management
-                systems, and exploring secure computer networking infrastructure.
+            <div class="hero-pitch">
+              <p class="hero-intro-copy">
+                Hi, I’m J.H.P.W. Viraj — an HND in Information Technology student at SLIATE in Batticaloa, Sri Lanka. I
+                build full-stack web applications, relational database systems, and reliable computer networking
+                infrastructure.
               </p>
-
-              <div class="hero-sentence hero-cta scrolly-cta-row">
-                <a href="#projects" class="btn btn-primary">
-                  <i class="fa-solid fa-rocket"></i> View Projects
-                </a>
-                <a href="#contact" class="btn btn-secondary">
-                  <i class="fa-solid fa-envelope"></i> Get In Touch
-                </a>
-                <a href="https://github.com/virajwills2003-source" target="_blank" rel="noopener" class="btn btn-icon"
-                  title="GitHub">
-                  <i class="fa-brands fa-github"></i>
-                </a>
-                <a href="https://www.linkedin.com/in/virajwills2003-source" target="_blank" rel="noopener"
-                  class="btn btn-icon" title="LinkedIn">
-                  <i class="fa-brands fa-linkedin-in"></i>
-                </a>
-              </div>
-
-              <div class="hero-sentence hero-stats scrolly-stats-flex">
-                <div class="stat-card">
-                  <span class="stat-number">2+</span>
-                  <span class="stat-label">Featured Projects</span>
-                </div>
-                <div class="stat-card">
-                  <span class="stat-number">5+</span>
-                  <span class="stat-label">Core Languages</span>
-                </div>
-                <div class="stat-card">
-                  <span class="stat-number">SLIATE</span>
-                  <span class="stat-label">HND IT Student</span>
-                </div>
-                <div class="stat-card">
-                  <span class="stat-number">100%</span>
-                  <span class="stat-label">Dedication</span>
-                </div>
-              </div>
+              <p class="eyebrow text-muted hero-sub-caption">
+                <span id="typingText">SOFTWARE &amp; WEB / DBMS &amp; NETWORKING</span>
+              </p>
             </div>
           </div>
+        </div>
+      </section>
 
-          <!-- Stage 3: Tech Matrix & Progressive Skill Meters (After Hero Intro) -->
-          <div class="scrolly-stage stage-3" id="scrollyStage3">
-            <div class="hud-card glass-hud">
-              <div class="hud-header">
-                <span class="hud-tag"><i class="fa-solid fa-microchip"></i> LIVE TELEMETRY</span>
-                <h3>⚡ Core Tech Stack Matrix</h3>
+      <!-- 00.1 — Personal Introduction -->
+      <section class="home-intro-band page-gutter" data-tick aria-labelledby="home-intro-heading">
+        <div class="home-intro-grid">
+          <div class="home-intro-meta page-stagger-item">
+            <p class="eyebrow text-muted">00.1 — INTRODUCTION</p>
+            <dl class="home-meta-facts">
+              <div>
+                <dt class="eyebrow text-muted">BASED IN</dt>
+                <dd>Batticaloa, Sri Lanka</dd>
               </div>
-              <div class="scrolly-skills-grid">
-                <div class="scrolly-skill-item" data-target="90">
-                  <div class="skill-info">
-                    <span class="skill-name"><i class="fa-brands fa-java text-orange"></i> Java Enterprise</span>
-                    <span class="skill-val">0%</span>
-                  </div>
-                  <div class="scrolly-progress-track">
-                    <div class="scrolly-progress-fill fill-java"></div>
-                  </div>
-                </div>
-
-                <div class="scrolly-skill-item" data-target="88">
-                  <div class="skill-info">
-                    <span class="skill-name"><i class="fa-brands fa-php text-purple"></i> PHP & Laravel</span>
-                    <span class="skill-val">0%</span>
-                  </div>
-                  <div class="scrolly-progress-track">
-                    <div class="scrolly-progress-fill fill-php"></div>
-                  </div>
-                </div>
-
-                <div class="scrolly-skill-item" data-target="85">
-                  <div class="skill-info">
-                    <span class="skill-name"><i class="fa-brands fa-js text-yellow"></i> JavaScript & Web</span>
-                    <span class="skill-val">0%</span>
-                  </div>
-                  <div class="scrolly-progress-track">
-                    <div class="scrolly-progress-fill fill-js"></div>
-                  </div>
-                </div>
-
-                <div class="scrolly-skill-item" data-target="85">
-                  <div class="skill-info">
-                    <span class="skill-name"><i class="fa-solid fa-database text-blue"></i> SQL & Database
-                      Systems</span>
-                    <span class="skill-val">0%</span>
-                  </div>
-                  <div class="scrolly-progress-track">
-                    <div class="scrolly-progress-fill fill-sql"></div>
-                  </div>
-                </div>
-
-                <div class="scrolly-skill-item" data-target="80">
-                  <div class="skill-info">
-                    <span class="skill-name"><i class="fa-solid fa-network-wired text-green"></i> Networking
-                      Infrastructure</span>
-                    <span class="skill-val">0%</span>
-                  </div>
-                  <div class="scrolly-progress-track">
-                    <div class="scrolly-progress-fill fill-net"></div>
-                  </div>
-                </div>
+              <div>
+                <dt class="eyebrow text-muted">STUDYING</dt>
+                <dd>HNDIT · SLIATE</dd>
               </div>
-            </div>
+              <div>
+                <dt class="eyebrow text-muted">LANGUAGES</dt>
+                <dd>English · Sinhala · Tamil</dd>
+              </div>
+            </dl>
           </div>
 
-          <!-- Stage 4: Systems Architecture & Key Highlights (Item-by-Item Scroll Scrubbing) -->
-          <div class="scrolly-stage stage-4" id="scrollyStage4">
-            <div class="hud-card glass-hud architecture-hud">
-              <div class="arch-item hud-header">
-                <span class="hud-tag"><i class="fa-solid fa-cubes"></i> SYSTEMS & ENGINEERING</span>
-                <h3>🌐 Software & Network Architecture</h3>
-              </div>
-              <div class="scrolly-features-list">
-                <div class="arch-item feature-badge-item">
-                  <div class="badge-icon"><i class="fa-solid fa-layer-group"></i></div>
-                  <div class="badge-text">
-                    <h4>Full-Stack Development</h4>
-                    <p>Building high-performance web applications with Laravel, Java, and modern JavaScript.</p>
-                  </div>
-                </div>
-                <div class="arch-item feature-badge-item">
-                  <div class="badge-icon"><i class="fa-solid fa-server"></i></div>
-                  <div class="badge-text">
-                    <h4>Database Architecture & Querying</h4>
-                    <p>Designing relational schemas, indexed MySQL queries, and transaction security.</p>
-                  </div>
-                </div>
-                <div class="arch-item feature-badge-item">
-                  <div class="badge-icon"><i class="fa-solid fa-shield-halved"></i></div>
-                  <div class="badge-text">
-                    <h4>Secure Computer Networks</h4>
-                    <p>Routing, subnettings, VLAN configurations, and network infrastructure diagnostics.</p>
-                  </div>
-                </div>
-              </div>
+          <div class="home-intro-narrative page-stagger-item">
+            <h2 id="home-intro-heading" class="home-intro-lead">
+              Bridging clean backend engineering, structured databases, and computer networking — from application code
+              down to the protocol layer.
+            </h2>
+            <p class="home-intro-body text-muted">
+              I work across Java, Python, PHP, Laravel, JavaScript, SQL, and C# to turn ideas into dependable digital
+              products — from vehicle rental platforms and live Railway-hosted Laravel apps to desktop library
+              management tools.
+            </p>
+            <p class="home-intro-body text-muted">
+              Alongside full-stack development, I hold a strong passion for computer networking and systems security —
+              designing multi-VLAN topologies, VLSM subnet plans, and routing labs in Cisco Packet Tracer.
+            </p>
+            <div class="home-intro-actions">
+              <a href="#/about" class="editorial-link eyebrow" data-route="about" data-transition="slide" data-bracket>
+                READ FULL BIO &amp; SKILLS →
+              </a>
+              <a href="#/contact" class="editorial-link eyebrow text-muted" data-route="contact" data-transition="scale"
+                data-bracket>
+                START A CONVERSATION →
+              </a>
             </div>
           </div>
+        </div>
+      </section>
 
-        </div> <!-- /.scrolly-stage-container -->
+      <!-- Experience & Metrics At A Glance (asklionel.tech 4-column hairline grid) -->
+      <section class="home-glance page-gutter" data-tick aria-label="Experience at a glance">
+        <dl class="home-figures">
+          <div class="home-figure page-stagger-item">
+            <dt class="eyebrow text-muted">FEATURED SYSTEMS</dt>
+            <dd class="home-figure-value">04</dd>
+          </div>
+          <div class="home-figure page-stagger-item">
+            <dt class="eyebrow text-muted">CORE LANGUAGES</dt>
+            <dd class="home-figure-value">6+</dd>
+          </div>
+          <div class="home-figure page-stagger-item">
+            <dt class="eyebrow text-muted">EDUCATION · HNDIT</dt>
+            <dd class="home-figure-value">SLIATE</dd>
+          </div>
+          <div class="home-figure page-stagger-item">
+            <dt class="eyebrow text-muted">DEDICATION</dt>
+            <dd class="home-figure-value">100%</dd>
+          </div>
+        </dl>
 
-        <!-- Scrolly Progress Indicator -->
-        <div class="scrolly-scrubber-bar">
-          <div class="scrolly-scrubber-progress" id="scrubberProgress"></div>
+        <!-- 00.2 — Portfolio Summary & Chapter Directory -->
+        <div class="home-summary-band" data-tick aria-labelledby="home-summary-heading">
+          <div class="home-summary-head">
+            <p class="eyebrow text-muted">00.2 — PORTFOLIO SUMMARY</p>
+            <h2 id="home-summary-heading" class="home-summary-title">WHAT’S INSIDE</h2>
+          </div>
+
+          <ol class="home-summary-list" aria-label="Portfolio sections summary">
+            <li class="home-summary-row" data-bracket>
+              <a href="#/work" class="home-summary-link" data-route="work" data-transition="curtain">
+                <span class="eyebrow home-summary-muted">01</span>
+                <span class="home-summary-main">
+                  <span class="home-summary-name">Selected Work</span>
+                  <span class="home-summary-desc home-summary-muted">
+                    Four engineered builds with system blueprints: DriveEase (PHP/MySQL), Roommate Finder (Laravel live on
+                    Railway), TEch-Review (open-source portal), and Book Management System (Java Swing + JDBC).
+                  </span>
+                </span>
+                <span class="eyebrow home-summary-muted home-summary-meta">4 PROJECTS</span>
+                <span class="home-summary-arrow" aria-hidden="true">↗</span>
+              </a>
+            </li>
+
+            <li class="home-summary-row" data-bracket>
+              <a href="#/about" class="home-summary-link" data-route="about" data-transition="slide">
+                <span class="eyebrow home-summary-muted">02</span>
+                <span class="home-summary-main">
+                  <span class="home-summary-name">About &amp; Capabilities</span>
+                  <span class="home-summary-desc home-summary-muted">
+                    My background, portrait, viraj.identify() profile, domain weighting, 7 filterable technical skill
+                    groups, and Cisco routing, switching, OSI/TCP-IP &amp; security fundamentals.
+                  </span>
+                </span>
+                <span class="eyebrow home-summary-muted home-summary-meta">BIO · 7 GROUPS</span>
+                <span class="home-summary-arrow" aria-hidden="true">↗</span>
+              </a>
+            </li>
+
+            <li class="home-summary-row" data-bracket>
+              <a href="#/notes" class="home-summary-link" data-route="notes" data-transition="circle">
+                <span class="eyebrow home-summary-muted">03</span>
+                <span class="home-summary-main">
+                  <span class="home-summary-name">Field Notes &amp; Record</span>
+                  <span class="home-summary-desc home-summary-muted">
+                    Four expandable engineering notes on VLAN/VLSM labs, Railway deployment, JDBC patterns, and web
+                    fundamentals, plus my SLIATE HNDIT &amp; G.C.E. A/L and O/L grade records.
+                  </span>
+                </span>
+                <span class="eyebrow home-summary-muted home-summary-meta">4 NOTES · 3 MILESTONES</span>
+                <span class="home-summary-arrow" aria-hidden="true">↗</span>
+              </a>
+            </li>
+
+            <li class="home-summary-row" data-bracket>
+              <a href="#/contact" class="home-summary-link" data-route="contact" data-transition="scale">
+                <span class="eyebrow home-summary-muted">04</span>
+                <span class="home-summary-main">
+                  <span class="home-summary-name">Contact &amp; Dispatch</span>
+                  <span class="home-summary-desc home-summary-muted">
+                    Interactive 4-channel signal routing pipeline and direct message dispatch to WhatsApp (+9476926251),
+                    Gmail (virajwills2003@gmail.com), GitHub, and LinkedIn.
+                  </span>
+                </span>
+                <span class="eyebrow home-summary-muted home-summary-meta">4 CHANNELS</span>
+                <span class="home-summary-arrow" aria-hidden="true">↗</span>
+              </a>
+            </li>
+          </ol>
         </div>
 
-      </div> <!-- /.scrolly-sticky-viewport -->
-    </div> <!-- /.scrolly-section-wrapper -->
+        <div class="home-stack-band" data-tick>
+          <p class="eyebrow text-muted home-stack-label">BUILT WITH</p>
+          <ul class="home-logos" aria-label="Core technologies">
+            <li class="home-logo"><span class="home-logo-name">Java</span></li>
+            <li class="home-logo"><span class="home-logo-name">Laravel</span></li>
+            <li class="home-logo"><span class="home-logo-name">JavaScript</span></li>
+            <li class="home-logo"><span class="home-logo-name">MySQL</span></li>
+          </ul>
+        </div>
+      </section>
 
-    <!-- ===== ABOUT SECTION ===== -->
-    <section id="about" class="section about-section">
-      <div class="container">
-        <div class="section-header text-center reveal-up">
-          <span class="section-tag">&lt;about&gt;</span>
-          <h2 class="section-title">🚀 About Me</h2>
-          <div class="section-divider"></div>
+      <!-- Next Chapter Strip -> Work (curtain) -->
+      <nav class="next-chapter page-gutter" data-tick aria-label="Next page">
+        <a href="#/work" class="next-chapter-link" data-route="work" data-transition="curtain" data-bracket>
+          <span class="eyebrow text-muted">END OF STREAM · 00/04</span>
+          <div class="next-chapter-row">
+            <div class="next-chapter-title">
+              <span class="eyebrow next-chapter-kicker">NEXT →</span>
+              <span class="next-chapter-name">SELECTED WORK.</span>
+            </div>
+            <div class="next-chapter-wire" aria-hidden="true">
+              <span class="next-chapter-packet"></span>
+            </div>
+          </div>
+        </a>
+      </nav>
+    </div>
+
+    <!-- ==========================================================
+         ROUTE #/work — WORK (Destination Transition: Vertical Curtain)
+         ========================================================== -->
+    <div class="page-plane" id="page-work" data-page="work" hidden>
+      <section id="projects" class="chapter-section page-gutter" aria-labelledby="work-heading">
+        <div class="chapter-header" data-tick>
+          <div>
+            <p class="eyebrow text-muted" data-decode="true">01 — SELECTED WORK</p>
+            <h1 id="work-heading" class="section-title">
+              <span class="intro-line-mask"><span class="heading-reveal">COMPLEXITY.</span></span>
+              <span class="intro-line-mask"><span class="heading-reveal">RESOLVED.</span></span>
+            </h1>
+          </div>
+          <span class="eyebrow text-muted chapter-side-note">FOUR SYSTEMS.<br>ONE METHOD.</span>
         </div>
 
-        <div class="about-grid">
-          <!-- Bio Glass Card -->
-          <div class="about-card glass-card reveal-left">
-            <div class="card-glow"></div>
-            <div class="profile-header">
-              <div class="profile-avatar" id="profileAvatarContainer">
-                <img id="profileImageDisplay" src="avatar-360.jpg" alt="J.H.P.W. Viraj Profile"
-                  class="profile-img-static" width="65" height="65" loading="lazy" decoding="async">
+        <div class="work-index">
+          <ol class="work-list" aria-label="Selected projects">
+            <li class="work-row page-stagger-item" style="--brand: #2B8BFF;" data-project-id="driveease"
+              data-active="true" data-tick data-bracket>
+              <div class="work-row-line">
+                <span class="eyebrow work-row-muted">01</span>
+                <div class="work-row-main">
+                  <h2 class="work-row-title">
+                    <button type="button" class="work-row-trigger" aria-expanded="true"
+                      aria-controls="work-preview">DriveEase</button>
+                  </h2>
+                  <p class="work-row-muted work-row-role">Vehicle Rental Web Application</p>
+                </div>
+                <span class="eyebrow work-row-muted work-row-date">FIRST PROJECT · PHP</span>
               </div>
-              <div class="profile-info">
-                <h3>J.H.P.W. Viraj</h3>
-                <p class="profile-location"><i class="fa-solid fa-location-dot"></i> Batticaloa, Sri Lanka</p>
+              <div class="work-row-inline" id="inline-driveease"></div>
+            </li>
+
+            <li class="work-row page-stagger-item" style="--brand: #FA5022;" data-project-id="roommate" data-tick
+              data-bracket>
+              <div class="work-row-line">
+                <span class="eyebrow work-row-muted">02</span>
+                <div class="work-row-main">
+                  <h2 class="work-row-title">
+                    <button type="button" class="work-row-trigger" aria-expanded="false"
+                      aria-controls="work-preview">Roommate</button>
+                  </h2>
+                  <p class="work-row-muted work-row-role">Full-Stack Matching Platform</p>
+                </div>
+                <span class="eyebrow work-row-muted work-row-date">FINAL PROJECT · LARAVEL</span>
+              </div>
+              <div class="work-row-inline" id="inline-roommate"></div>
+            </li>
+
+            <li class="work-row page-stagger-item" style="--brand: #107ACA;" data-project-id="techreview" data-tick
+              data-bracket>
+              <div class="work-row-line">
+                <span class="eyebrow work-row-muted">03</span>
+                <div class="work-row-main">
+                  <h2 class="work-row-title">
+                    <button type="button" class="work-row-trigger" aria-expanded="false"
+                      aria-controls="work-preview">TEch-Review</button>
+                  </h2>
+                  <p class="work-row-muted work-row-role">Open-Source Evaluation Repository</p>
+                </div>
+                <span class="eyebrow work-row-muted work-row-date">OPEN SOURCE · WEB</span>
+              </div>
+              <div class="work-row-inline" id="inline-techreview"></div>
+            </li>
+
+            <li class="work-row page-stagger-item" style="--brand: #FE5000;" data-project-id="booksystem" data-tick
+              data-bracket>
+              <div class="work-row-line">
+                <span class="eyebrow work-row-muted">04</span>
+                <div class="work-row-main">
+                  <h2 class="work-row-title">
+                    <button type="button" class="work-row-trigger" aria-expanded="false"
+                      aria-controls="work-preview">Book System</button>
+                  </h2>
+                  <p class="work-row-muted work-row-role">Java Swing Library Desktop App</p>
+                </div>
+                <span class="eyebrow work-row-muted work-row-date">JAVA · SWING · JDBC</span>
+              </div>
+              <div class="work-row-inline" id="inline-booksystem"></div>
+            </li>
+          </ol>
+
+          <aside class="work-preview page-stagger-item" id="work-preview" aria-label="Selected project preview"
+            aria-live="polite">
+            <div class="work-preview-body" id="workPreviewBody"></div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Next Chapter Strip -> About (slide) -->
+      <nav class="next-chapter page-gutter" data-tick aria-label="Next page">
+        <a href="#/about" class="next-chapter-link" data-route="about" data-transition="slide" data-bracket>
+          <span class="eyebrow text-muted">END OF STREAM · 01/04</span>
+          <div class="next-chapter-row">
+            <div class="next-chapter-title">
+              <span class="eyebrow next-chapter-kicker">NEXT →</span>
+              <span class="next-chapter-name">ABOUT.</span>
+            </div>
+            <div class="next-chapter-wire" aria-hidden="true">
+              <span class="next-chapter-packet"></span>
+            </div>
+          </div>
+        </a>
+      </nav>
+    </div>
+
+    <!-- ==========================================================
+         ROUTE #/about — ABOUT & CAPABILITIES (Destination Transition: Horizontal Slide)
+         ========================================================== -->
+    <div class="page-plane" id="page-about" data-page="about" hidden>
+      <section id="about" class="chapter-section page-gutter" aria-labelledby="about-heading">
+        <div class="chapter-header" data-tick>
+          <div>
+            <p class="eyebrow text-muted" data-decode="true">02 — ABOUT / J.H.P.W. VIRAJ</p>
+            <h1 id="about-heading" class="section-title">
+              <span class="intro-line-mask"><span class="heading-reveal">SOFTWARE MEETS</span></span>
+              <span class="intro-line-mask"><span class="heading-reveal">INFRASTRUCTURE.</span></span>
+            </h1>
+          </div>
+          <span class="eyebrow text-muted chapter-side-note">BATTICALOA, SRI LANKA.<br>SLIATE · HNDIT.</span>
+        </div>
+
+        <div class="about-grid" data-tick>
+          <!-- Full-Color Portrait with Viewfinder Corner Marks -->
+          <figure class="about-portrait-col page-stagger-item">
+            <figcaption class="eyebrow text-muted about-portrait-top">
+              TECHNICAL DEPTH.<br>SYSTEMS PERSPECTIVE.
+            </figcaption>
+            <div class="portrait-stage">
+              <span class="portrait-corner-tl" aria-hidden="true"></span>
+              <span class="portrait-corner-br" aria-hidden="true"></span>
+              <div class="portrait-img-clip">
+                <img src="./avatar-360.jpg" srcset="./avatar-240.jpg 240w, ./avatar-360.jpg 360w"
+                  sizes="(max-width: 768px) 240px, 340px" alt="Portrait of J.H.P.W. Viraj"
+                  class="portrait-img" width="360" height="360" loading="lazy" decoding="async">
               </div>
             </div>
+            <div class="portrait-meta eyebrow text-muted">
+              <span>JV / PORTRAIT</span>
+              <span>COLOR</span>
+            </div>
+          </figure>
 
-
-
-            <p class="about-text">
-              I am a driven<strong>Information Technology student based in <strong> Batticaloa Sri Lanka
-                </strong></strong> pursuing a <strong> Higher National Diploma in Information Technology (HNDIT) at
-                SLIATE</strong> . focused on building end-to-end digital solutions and system infrastructures. My
-              skillset bridges software development with networking fundamentals, giving me a solid understanding of
-              applications from the ground up—from code architecture to network delivery.<br><br>
-              I am actively expanding my practical skills through hands-on building: creating dynamic web applications,
-              engineering mobile apps in Android Studio, and designing simulated network topologies using <strong>Cisco
-                Packet Tracer.</strong><br><br>
-              While I hold a strong foundation in full-stack web development and software engineering, I have a deep
-              passion for the<strong> networking and security field,</strong> where I enjoy solving complex structural
-              and connectivity challenges.
+          <div class="about-narrative-col page-stagger-item">
+            <p class="about-lead">
+              I build where clean backend architecture meets reliable network delivery — turning structured code,
+              relational databases, and infrastructure fundamentals into complete digital systems.
+            </p>
+            <p class="about-body text-muted">
+              Based in Batticaloa, Sri Lanka, I am pursuing a Higher National Diploma in Information Technology (HNDIT)
+              at SLIATE. I actively expand my practical engineering skills by building dynamic full-stack web
+              applications, engineering mobile apps in Android Studio, and designing simulated network topologies in
+              Cisco Packet Tracer.
+            </p>
+            <p class="about-body text-muted">
+              While grounded in full-stack development and object-oriented programming, I hold a deep passion for
+              computer networking and systems security — solving structural connectivity challenges from the protocol
+              layer up.
             </p>
 
-            <div class="about-highlights">
-              <div class="highlight-item">
-                <i class="fa-solid fa-bullseye highlight-icon"></i>
-                <div>
-                  <h4>Primary Domain Focus</h4>
-                  <p>Networking (100%), DBMS (75%), Software & Web Dev (70%), OOP & Mobile Dev (50%).</p>
-                </div>
+            <dl class="about-stat-row">
+              <div class="about-stat">
+                <dt class="eyebrow text-muted">NETWORKING FOCUS</dt>
+                <dd class="about-stat-value">100%</dd>
               </div>
-              <div class="highlight-item">
-                <i class="fa-solid fa-laptop-code highlight-icon"></i>
-                <div>
-                  <h4>Current Stack</h4>
-                  <p>Java (OOP 60%), Kotlin (Learning), Cisco (Learning), PHP (Laravel), JavaScript, SQL.</p>
-                </div>
+              <div class="about-stat">
+                <dt class="eyebrow text-muted">SPOKEN LANGUAGES</dt>
+                <dd class="about-stat-value">3</dd>
               </div>
-              <div class="highlight-item">
-                <i class="fa-solid fa-bolt highlight-icon"></i>
-                <div>
-                  <h4>Fun Fact</h4>
-                  <p>I enjoy solving programming problems and exploring secure networking infrastructure.</p>
-                </div>
+              <div class="about-stat">
+                <dt class="eyebrow text-muted">DATABASE SYSTEMS</dt>
+                <dd class="about-stat-value">75%</dd>
               </div>
-            </div>
-          </div>
+            </dl>
 
-          <!-- Domain Focus & Interest Breakdown Card -->
-          <div class="about-card glass-card reveal-right">
-            <div class="card-glow"></div>
-            <h3 class="card-title"><i class="fa-solid fa-chart-pie"></i> Domain Interest & Focus Breakdown</h3>
-
-            <div class="interest-breakdown-list">
-              <!-- Networking 100% -->
-              <div class="interest-item">
-                <div class="interest-label-row">
-                  <span class="interest-name"><i class="fa-solid fa-network-wired text-cyan"></i> Computer
-                    Networking</span>
-                  <span class="interest-percent text-cyan">100% Full Interest</span>
-                </div>
-                <div class="interest-bar-bg">
-                  <div class="interest-bar-fill fill-cyan" style="width: 100%;"></div>
-                </div>
-              </div>
-
-              <!-- DBMS 75% -->
-              <div class="interest-item">
-                <div class="interest-label-row">
-                  <span class="interest-name"><i class="fa-solid fa-database text-blue"></i> Database Management Systems
-                    (DBMS)</span>
-                  <span class="interest-percent text-blue">75% Interest</span>
-                </div>
-                <div class="interest-bar-bg">
-                  <div class="interest-bar-fill fill-blue" style="width: 75%;"></div>
-                </div>
-              </div>
-
-              <!-- Software & Web Dev 70% -->
-              <div class="interest-item">
-                <div class="interest-label-row">
-                  <span class="interest-name"><i class="fa-solid fa-code text-violet"></i> Software & Web
-                    Development</span>
-                  <span class="interest-percent text-violet">70% Interest</span>
-                </div>
-                <div class="interest-bar-bg">
-                  <div class="interest-bar-fill fill-violet" style="width: 70%;"></div>
-                </div>
-              </div>
-
-              <!-- OOP & Mobile App Dev 50% -->
-              <div class="interest-item">
-                <div class="interest-label-row">
-                  <span class="interest-name"><i class="fa-solid fa-mobile-screen text-emerald"></i> OOP & Mobile App
-                    Development</span>
-                  <span class="interest-percent text-emerald">50% Interest</span>
-                </div>
-                <div class="interest-bar-bg">
-                  <div class="interest-bar-fill fill-emerald" style="width: 50%;"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="quote-card">
-              <i class="fa-solid fa-quote-left quote-icon"></i>
-              <p class="quote-text">"Success is the sum of small efforts, repeated day in and day out."</p>
-              <span class="quote-author">— Robert Collier</span>
-            </div>
-
-            <div class="collaboration-banner">
-              <i class="fa-solid fa-handshake"></i>
-              <span>Looking forward to collaborating on open-source & development projects!</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== SKILLS SECTION ===== -->
-    <section id="skills" class="section skills-section">
-      <div class="container">
-        <div class="section-header text-center reveal-up">
-          <span class="section-tag">&lt;skills&gt;</span>
-          <h2 class="section-title">💻 Skill Status & Proficiency</h2>
-          <p class="section-subtitle">Visual skill breakdown with progress indicators across technical & creative
-            domains</p>
-          <div class="section-divider"></div>
-        </div>
-
-        <!-- Category Tabs -->
-        <div class="skill-tabs reveal-up">
-          <button class="tab-btn active" data-tab="all">All Skills</button>
-          <button class="tab-btn" data-tab="tech"><i class="fa-solid fa-code"></i> Languages</button>
-          <button class="tab-btn" data-tab="frameworks"><i class="fa-solid fa-layer-group"></i> Frameworks</button>
-          <button class="tab-btn" data-tab="db-net"><i class="fa-solid fa-server"></i> DB & Networking</button>
-          <button class="tab-btn" data-tab="soft"><i class="fa-solid fa-brain"></i> Soft & Creative</button>
-        </div>
-
-        <div class="skills-grid">
-
-          <!-- Languages Card -->
-          <div class="skill-card glass-card reveal-up" data-category="tech">
-            <div class="skill-card-header">
-              <div class="icon-wrapper tech-color"><i class="fa-solid fa-code"></i></div>
-              <h3>Programming Languages</h3>
-            </div>
-
-            <div class="skill-bars-list">
-              <!-- OOP -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-solid fa-cubes"></i> Object-Oriented Programming (OOP)</span>
-                  <span class="skill-percentage" data-target="60">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill tech-bar" data-width="60%"></div>
-                </div>
-              </div>
-
-              <!-- Kotlin (Learning Status) -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name">
-                    <i class="fa-brands fa-android"></i> Kotlin
-                    <span class="badge-status learning"><i class="fa-solid fa-graduation-cap"></i> Learning</span>
-                  </span>
-                  <span class="skill-percentage" data-target="65">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill tech-bar" data-width="50%"></div>
-                </div>
-              </div>
-
-              <!-- Java -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-brands fa-java"></i> Java (Swing & Core)</span>
-                  <span class="skill-percentage" data-target="85">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill tech-bar" data-width="85%"></div>
-                </div>
-              </div>
-
-              <!-- PHP -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-brands fa-php"></i> PHP</span>
-                  <span class="skill-percentage" data-target="88">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill tech-bar" data-width="88%"></div>
-                </div>
-              </div>
-
-              <!-- JavaScript -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-brands fa-js"></i> JavaScript</span>
-                  <span class="skill-percentage" data-target="82">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill tech-bar" data-width="82%"></div>
-                </div>
-              </div>
-
-              <!-- C# -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-solid fa-hashtag"></i> C#</span>
-                  <span class="skill-percentage" data-target="75">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill tech-bar" data-width="75%"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Frameworks & Web Tech Card -->
-          <div class="skill-card glass-card reveal-up delay-1" data-category="frameworks">
-            <div class="skill-card-header">
-              <div class="icon-wrapper framework-color"><i class="fa-solid fa-layer-group"></i></div>
-              <h3>Frameworks & Web Tech</h3>
-            </div>
-
-            <div class="skill-bars-list">
-              <!-- Laravel -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-brands fa-laravel"></i> Laravel</span>
-                  <span class="skill-percentage" data-target="85">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill framework-bar" data-width="85%"></div>
-                </div>
-              </div>
-
-              <!-- Blade Engine -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-solid fa-cubes"></i> Blade Templating</span>
-                  <span class="skill-percentage" data-target="88">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill framework-bar" data-width="88%"></div>
-                </div>
-              </div>
-
-              <!-- ASP.NET -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-solid fa-globe"></i> ASP.NET (C#)</span>
-                  <span class="skill-percentage" data-target="70">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill framework-bar" data-width="70%"></div>
-                </div>
-              </div>
-
-              <!-- Responsive Web Design -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-solid fa-mobile-screen"></i> Responsive Web Design</span>
-                  <span class="skill-percentage" data-target="90">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill framework-bar" data-width="90%"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Databases & Networking Card -->
-          <div class="skill-card glass-card reveal-up delay-2" data-category="db-net">
-            <div class="skill-card-header">
-              <div class="icon-wrapper db-color"><i class="fa-solid fa-server"></i></div>
-              <h3>Databases & Networking</h3>
-            </div>
-
-            <div class="skill-bars-list">
-              <!-- MySQL & DBMS -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-solid fa-database"></i> MySQL & DBMS</span>
-                  <span class="skill-percentage" data-target="88">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill db-bar" data-width="88%"></div>
-                </div>
-              </div>
-
-              <!-- Cisco Networking (Learning Status) -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name">
-                    <i class="fa-solid fa-network-wired"></i> Cisco Routing & Switching
-                    <!-- <span class="badge-status learning"><i class="fa-solid fa-graduation-cap"></i> Learning</span> -->
-                  </span>
-                  <span class="skill-percentage" data-target="90">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill db-bar" data-width="30%"></div>
-                </div>
-              </div>
-
-              <!-- Network Fundamentals -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-solid fa-sitemap"></i> OSI / TCP-IP Models</span>
-                  <span class="skill-percentage" data-target="85">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill db-bar" data-width="85%"></div>
-                </div>
-              </div>
-
-              <!-- Cyber Security -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-solid fa-shield-halved"></i> Security & Access Control</span>
-                  <span class="skill-percentage" data-target="75">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill db-bar" data-width="75%"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Soft & Creative Skills Card -->
-          <div class="skill-card glass-card reveal-up delay-3" data-category="soft">
-            <div class="skill-card-header">
-              <div class="icon-wrapper soft-color"><i class="fa-solid fa-brain"></i></div>
-              <h3>Soft & Creative Skills</h3>
-            </div>
-
-            <div class="skill-bars-list">
-              <!-- Problem Solving -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-solid fa-puzzle-piece"></i> Problem Solving</span>
-                  <span class="skill-percentage" data-target="90">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill soft-bar" data-width="90%"></div>
-                </div>
-              </div>
-
-              <!-- System Design -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-solid fa-diagram-project"></i> System Architecture</span>
-                  <span class="skill-percentage" data-target="80">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill soft-bar" data-width="80%"></div>
-                </div>
-              </div>
-
-              <!-- Team Collaboration -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-solid fa-people-group"></i> Team Collaboration</span>
-                  <span class="skill-percentage" data-target="88">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill soft-bar" data-width="88%"></div>
-                </div>
-              </div>
-
-              <!-- Continuous Learning -->
-              <div class="skill-item">
-                <div class="skill-info">
-                  <span class="skill-name"><i class="fa-solid fa-graduation-cap"></i> Continuous Learning</span>
-                  <span class="skill-percentage" data-target="95">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill soft-bar" data-width="95%"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Tech Icons Badge Cloud -->
-        <div class="tech-stack-cloud reveal-up">
-          <span class="cloud-title">Tools & Environment:</span>
-          <div class="tech-pills">
-            <span class="tech-pill"><i class="fa-brands fa-git-alt"></i> Git</span>
-            <span class="tech-pill"><i class="fa-brands fa-github"></i> GitHub</span>
-            <span class="tech-pill"><i class="fa-solid fa-code"></i> VS Code</span>
-            <span class="tech-pill"><i class="fa-brands fa-android"></i> Android Studio</span>
-            <span class="tech-pill"><i class="fa-solid fa-network-wired"></i> Cisco Packet Tracer</span>
-            <span class="tech-pill"><i class="fa-solid fa-server"></i> XAMPP Server</span>
-            <span class="tech-pill"><i class="fa-solid fa-database"></i> MySQL Workbench</span>
-            <span class="tech-pill"><i class="fa-solid fa-file-word"></i> Microsoft Office</span>
+            <blockquote class="about-quote">
+              <p>“Success is the sum of small efforts, repeated day in and day out.”</p>
+              <footer class="eyebrow text-muted">— ROBERT COLLIER</footer>
+            </blockquote>
           </div>
         </div>
 
-      </div>
-    </section>
-
-    <!-- ===== PROJECTS SECTION ===== -->
-    <section id="projects" class="section projects-section">
-      <div class="container">
-        <div class="section-header text-center reveal-up">
-          <span class="section-tag">&lt;projects&gt;</span>
-          <h2 class="section-title">🚀 Featured Projects Showcase</h2>
-          <p class="section-subtitle">Real-world web applications built with structured backend architecture</p>
-          <div class="section-divider"></div>
+        <!-- PROFILE / IDENTIFY() Code Telemetry Strip -->
+        <div class="identify-band page-stagger-item" data-tick>
+          <div class="identify-head">
+            <span class="eyebrow text-muted">PROFILE / IDENTIFY()</span>
+            <span class="eyebrow text-muted identify-status">
+              <span class="identify-dot" aria-hidden="true"></span>
+              IDENTIFYING_
+            </span>
+          </div>
+          <pre class="identify-code"><code><span class="tok-fn">viraj.identify</span>(<span class="tok-str">"jhpw-viraj"</span>, {
+  <span class="tok-key">role</span>:      <span class="tok-str">"Software &amp; Web Developer"</span>,
+  <span class="tok-key">education</span>: <span class="tok-str">"HNDIT @ SLIATE, Batticaloa"</span>,
+  <span class="tok-key">focus</span>:     [<span class="tok-str">"Computer Networking"</span>, <span class="tok-str">"DBMS"</span>, <span class="tok-str">"Full-Stack Web"</span>, <span class="tok-str">"OOP &amp; Mobile"</span>],
+  <span class="tok-key">learning</span>:  [<span class="tok-str">"Kotlin"</span>, <span class="tok-str">"Cisco Routing &amp; Switching"</span>],
+  <span class="tok-key">spoken</span>:    [<span class="tok-str">"English"</span>, <span class="tok-str">"Sinhala"</span>, <span class="tok-str">"Tamil"</span>],
+  <span class="tok-key">interests</span>: [<span class="tok-str">"Coding"</span>, <span class="tok-str">"Reading"</span>, <span class="tok-str">"Gaming"</span>, <span class="tok-str">"Photography"</span>, <span class="tok-str">"Traveling"</span>]
+});</code></pre>
         </div>
 
-        <div class="projects-grid">
-
-          <!-- Project 1: DriveEase -->
-          <div class="project-card glass-card reveal-up">
-            <div class="project-banner project-bg-1">
-              <div class="project-overlay"></div>
-              <span class="project-tag-badge">First Project</span>
-              <div class="project-icon-large"><i class="fa-solid fa-car"></i></div>
-            </div>
-
-            <div class="project-content">
-              <h3 class="project-title">DriveEase — Premium Vehicle Rentals</h3>
-              <p class="project-description">
-                A feature-rich vehicle rental platform designed to provide a seamless browsing and booking experience
-                for users looking for quality vehicle rentals.
-              </p>
-
-              <div class="project-tech-tags">
-                <span class="tech-tag">HTML5</span>
-                <span class="tech-tag">CSS3</span>
-                <span class="tech-tag">JavaScript</span>
-                <span class="tech-tag">PHP</span>
-                <span class="tech-tag">MySQL</span>
-              </div>
-
-              <div class="project-actions">
-                <a href="https://virajwills2003-source.github.io/First-Project/" target="_blank" rel="noopener"
-                  class="btn btn-primary btn-sm">
-                  <i class="fa-solid fa-arrow-up-right-from-square"></i> Live Demo
-                </a>
-                <a href="https://github.com/virajwills2003-source/First-Project" target="_blank" rel="noopener"
-                  class="btn btn-outline btn-sm">
-                  <i class="fa-brands fa-github"></i> Repository
-                </a>
-              </div>
-            </div>
+        <!-- Domain Focus Hairline Telemetry -->
+        <div class="domain-focus-band reveal" data-tick>
+          <div class="domain-focus-label">
+            <span class="eyebrow text-muted">PRIMARY DOMAIN WEIGHTING</span>
+            <p class="domain-collab-note text-muted">Open to open-source &amp; engineering collaborations.</p>
           </div>
-
-          <!-- Project 2: Roommate Finder -->
-          <div class="project-card glass-card reveal-up delay-1">
-            <div class="project-banner project-bg-2">
-              <div class="project-overlay"></div>
-              <span class="project-tag-badge featured-badge">Final Project</span>
-              <div class="project-icon-large"><i class="fa-solid fa-house-user"></i></div>
-            </div>
-
-            <div class="project-content">
-              <h3 class="project-title">Roommate Finder Web Application</h3>
-              <p class="project-description">
-                A web-based platform developed to help users connect and find compatible roommates efficiently. Built
-                with modern web technologies, Laravel framework, and a structured backend.
-              </p>
-
-              <div class="project-tech-tags">
-                <span class="tech-tag">Laravel</span>
-                <span class="tech-tag">Blade</span>
-                <span class="tech-tag">PHP</span>
-                <span class="tech-tag">JavaScript</span>
-                <span class="tech-tag">MySQL</span>
+          <ul class="focus-list">
+            <li style="--ratio: 1;">
+              <div class="focus-row-head">
+                <span class="focus-title">Computer Networking</span>
+                <span class="eyebrow text-muted">100%</span>
               </div>
-
-              <div class="project-actions">
-                <a href="https://roommate-finder-production-0e28.up.railway.app" target="_blank" rel="noopener"
-                  class="btn btn-primary btn-sm">
-                  <i class="fa-solid fa-arrow-up-right-from-square"></i> Live Demo
-                </a>
-                <a href="https://github.com/virajwills2003-source" target="_blank" rel="noopener"
-                  class="btn btn-outline btn-sm">
-                  <i class="fa-brands fa-github"></i> Repository
-                </a>
+              <span class="focus-hairline" aria-hidden="true"><span></span></span>
+            </li>
+            <li style="--ratio: 0.75;">
+              <div class="focus-row-head">
+                <span class="focus-title">Database Management Systems (DBMS)</span>
+                <span class="eyebrow text-muted">75%</span>
               </div>
-            </div>
-          </div>
-
-          <!-- Project 3: TEch-Review Repository -->
-          <div class="project-card glass-card reveal-up delay-2">
-            <div class="project-banner project-bg-3">
-              <div class="project-overlay"></div>
-              <span class="project-tag-badge tech-review-badge">Open Source</span>
-              <div class="project-icon-large"><i class="fa-solid fa-microchip"></i></div>
-            </div>
-
-            <div class="project-content">
-              <h3 class="project-title">TEch-Review — Tech Evaluation Repository</h3>
-              <p class="project-description">
-                An open-source technology review and evaluation repository dedicated to benchmarking software
-                applications, networking architectures, and technical analysis.
-              </p>
-
-              <div class="project-tech-tags">
-                <span class="tech-tag">HTML5</span>
-                <span class="tech-tag">CSS</span>
-                <span class="tech-tag">JavaScript</span>
-                <span class="tech-tag">PHP</span>
-                <span class="tech-tag">MySQL</span>
+              <span class="focus-hairline" aria-hidden="true"><span></span></span>
+            </li>
+            <li style="--ratio: 0.70;">
+              <div class="focus-row-head">
+                <span class="focus-title">Software &amp; Web Development</span>
+                <span class="eyebrow text-muted">70%</span>
               </div>
-
-              <div class="project-actions">
-                <a href="https://tech-review-production.up.railway.app/" target="_blank" rel="noopener"
-                  class="btn btn-primary btn-sm">
-                  <i class="fa-brands fa-github"></i> Live Demo
-                </a>
-                <a href="https://github.com/virajwills2003-source/TEch-Review" target="_blank" rel="noopener"
-                  class="btn btn-outline btn-sm">
-                  <i class="fa-solid fa-globe"></i> GitHub Repository
-                </a>
+              <span class="focus-hairline" aria-hidden="true"><span></span></span>
+            </li>
+            <li style="--ratio: 0.50;">
+              <div class="focus-row-head">
+                <span class="focus-title">OOP &amp; Mobile App Development</span>
+                <span class="eyebrow text-muted">50%</span>
               </div>
-            </div>
-          </div>
-
-          <!-- Project 4: Book Management System -->
-          <div class="project-card glass-card reveal-up delay-3">
-            <div class="project-banner project-bg-4">
-              <div class="project-overlay"></div>
-              <span class="project-tag-badge book-badge">Java Project</span>
-              <div class="project-icon-large"><i class="fa-solid fa-book"></i></div>
-            </div>
-
-            <div class="project-content">
-              <h3 class="project-title">Book Management System</h3>
-              <p class="project-description">
-                A Java desktop application for managing library books, borrowers, and transactions. Implements CRUD
-                operations, search, and report generation.
-              </p>
-
-              <div class="project-tech-tags">
-                <span class="tech-tag">Java</span>
-                <span class="tech-tag">Swing</span>
-                <span class="tech-tag">MySQL</span>
-                <span class="tech-tag">JDBC</span>
-              </div>
-
-              <div class="project-actions">
-                <a href="https://github.com/virajwills2003-source/Book-management-system-" target="_blank"
-                  rel="noopener" class="btn btn-outline btn-sm">
-                  <i class="fa-solid fa-globe"></i> GitHub Repository
-                </a>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== NETWORKING & SECURITY SECTION ===== -->
-    <section id="networking" class="section networking-section">
-      <div class="container">
-        <div class="section-header text-center reveal-up">
-          <span class="section-tag">&lt;infrastructure&gt;</span>
-          <h2 class="section-title">🌐 Computer Networking & Security</h2>
-          <p class="section-subtitle">Infrastructure engineering, routing protocols, and security awareness</p>
-          <div class="section-divider"></div>
+              <span class="focus-hairline" aria-hidden="true"><span></span></span>
+            </li>
+          </ul>
         </div>
 
-        <div class="networking-grid">
-          <!-- Cisco Card -->
-          <div class="network-card glass-card reveal-left">
-            <div class="network-card-header">
-              <div class="network-badge cisco-badge">
-                <i class="fa-solid fa-network-wired"></i> Cisco Networking
-              </div>
+        <!-- Capabilities & Stack Directory (asklionel.tech /about structure) -->
+        <div id="skills" class="about-capabilities-wrap" data-tick>
+          <div class="sub-chapter-head">
+            <div>
+              <p class="eyebrow text-muted">CAPABILITIES &amp; STACK</p>
+              <h2 class="sub-chapter-title">UNDERSTAND · BUILD · CONNECT</h2>
             </div>
-            <h3>Routing, Switching & Subnetting</h3>
-            <p>Hands-on experience with routing, switching, subnetting, and network device configuration for reliable
-              enterprise communications.</p>
-            <div class="network-pills">
-              <span>Routing Protocols</span>
-              <span>Switching</span>
-              <span>Subnetting & VLSM</span>
-              <span>VLAN Configuration</span>
-            </div>
-          </div>
-
-          <!-- Fundamentals Card -->
-          <div class="network-card glass-card reveal-up">
-            <div class="network-card-header">
-              <div class="network-badge net-badge">
-                <i class="fa-solid fa-diagram-project"></i> Network Fundamentals
-              </div>
-            </div>
-            <h3>OSI & TCP/IP Architecture</h3>
-            <p>Solid understanding of standard networking models, LAN/WAN setup, packet switching, and diagnostic
-              network troubleshooting.</p>
-            <div class="network-pills">
-              <span>OSI 7-Layer Model</span>
-              <span>TCP/IP Suite</span>
-              <span>LAN/WAN Topology</span>
-              <span>Network Troubleshooting</span>
+            <div class="skill-filter-bar" role="tablist" aria-label="Filter skills by category">
+              <button type="button" class="filter-tab eyebrow active" data-filter="all" role="tab" aria-selected="true"
+                data-bracket>All</button>
+              <button type="button" class="filter-tab eyebrow" data-filter="languages" role="tab" aria-selected="false"
+                data-bracket>Languages</button>
+              <button type="button" class="filter-tab eyebrow" data-filter="web" role="tab" aria-selected="false"
+                data-bracket>Web</button>
+              <button type="button" class="filter-tab eyebrow" data-filter="data-tools" role="tab"
+                aria-selected="false" data-bracket>Data &amp; Tools</button>
+              <button type="button" class="filter-tab eyebrow" data-filter="networking" role="tab"
+                aria-selected="false" data-bracket>Networking</button>
+              <button type="button" class="filter-tab eyebrow" data-filter="other" role="tab" aria-selected="false"
+                data-bracket>Other</button>
             </div>
           </div>
 
-          <!-- Cyber Security Card -->
-          <div class="network-card glass-card reveal-right">
-            <div class="network-card-header">
-              <div class="network-badge sec-badge">
-                <i class="fa-solid fa-shield-halved"></i> Computer Security
+          <div class="skills-directory">
+            <div class="skill-row reveal" data-skill-group="languages" data-stagger-index="0">
+              <div class="skill-row-index eyebrow text-muted">01</div>
+              <div class="skill-row-content">
+                <div class="skill-row-head">
+                  <h3>Programming Languages</h3>
+                  <p class="text-muted">Core application logic, typed OOP architecture, and desktop/backend runtimes.</p>
+                </div>
+                <ul class="skill-items-grid">
+                  <li>Java <span class="eyebrow text-muted">SWING &amp; CORE</span></li>
+                  <li>Python</li>
+                  <li>PHP</li>
+                  <li>JavaScript</li>
+                  <li>C#</li>
+                  <li>Kotlin <span class="skill-tag-learning eyebrow">LEARNING</span></li>
+                  <li>Object-Oriented Programming (OOP)</li>
+                </ul>
               </div>
             </div>
-            <h3>Systems Security & Access Control</h3>
-            <p>Understanding core security principles, identity & access management, encryption fundamentals, and web
-              vulnerability awareness.</p>
-            <div class="network-pills">
-              <span>Access Control</span>
-              <span>Vulnerability Awareness</span>
-              <span>Secure Authentication</span>
-              <span>System Hardening</span>
+
+            <div class="skill-row reveal" data-skill-group="web" data-stagger-index="1">
+              <div class="skill-row-index eyebrow text-muted">02</div>
+              <div class="skill-row-content">
+                <div class="skill-row-head">
+                  <h3>Frontend Development</h3>
+                  <p class="text-muted">Semantic interfaces, responsive grid layouts, and template-driven views.</p>
+                </div>
+                <ul class="skill-items-grid">
+                  <li>HTML5</li>
+                  <li>CSS3</li>
+                  <li>Blade Templating</li>
+                  <li>Responsive Web Design</li>
+                </ul>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- ===== EDUCATION & CAREER GOAL SECTION ===== -->
-    <section id="education" class="section education-section">
-      <div class="container">
-        <div class="section-header text-center reveal-up">
-          <span class="section-tag">&lt;education&gt;</span>
-          <h2 class="section-title">🎓 Education & Career Goal</h2>
-          <div class="section-divider"></div>
-        </div>
+            <div class="skill-row reveal" data-skill-group="web" data-stagger-index="2">
+              <div class="skill-row-index eyebrow text-muted">03</div>
+              <div class="skill-row-content">
+                <div class="skill-row-head">
+                  <h3>Backend Development</h3>
+                  <p class="text-muted">MVC web services, relational data access layers, and clean system architecture.</p>
+                </div>
+                <ul class="skill-items-grid">
+                  <li>Laravel</li>
+                  <li>ASP.NET <span class="eyebrow text-muted">C#</span></li>
+                  <li>JDBC</li>
+                  <li>System Architecture</li>
+                </ul>
+              </div>
+            </div>
 
-        <div class="education-grid">
-          <!-- Timeline Card -->
-          <div class="edu-timeline-card glass-card reveal-left">
-            <h3 class="card-title"><i class="fa-solid fa-graduation-cap"></i> Academic Timeline</h3>
+            <div class="skill-row reveal" data-skill-group="data-tools" data-stagger-index="3">
+              <div class="skill-row-index eyebrow text-muted">04</div>
+              <div class="skill-row-content">
+                <div class="skill-row-head">
+                  <h3>Databases</h3>
+                  <p class="text-muted">Schema design, relational integrity, query optimization, and transaction storage.</p>
+                </div>
+                <ul class="skill-items-grid">
+                  <li>MySQL &amp; DBMS</li>
+                  <li>SQL &amp; Database Systems</li>
+                  <li>MySQL Workbench</li>
+                </ul>
+              </div>
+            </div>
 
-            <div class="timeline">
-              <!-- Item 1: SLIATE -->
-              <div class="timeline-item">
-                <div class="timeline-dot"></div>
-                <div class="timeline-content">
-                  <span class="timeline-date">Currently Following</span>
-                  <h4>Higher National Diploma in Information Technology (HND IT)</h4>
-                  <p class="timeline-school">Sri Lanka Institute of Advanced Technological Education (SLIATE)</p>
-                  <p class="timeline-desc">Specializing in Software Development, DBMS, Web Architecture, and Networking.
-                  </p>
+            <div class="skill-row reveal" data-skill-group="data-tools" data-stagger-index="4">
+              <div class="skill-row-index eyebrow text-muted">05</div>
+              <div class="skill-row-content">
+                <div class="skill-row-head">
+                  <h3>Development Tools</h3>
+                  <p class="text-muted">Version control, local server stacks, IDE workflows, and mobile tooling.</p>
+                </div>
+                <ul class="skill-items-grid">
+                  <li>Git</li>
+                  <li>GitHub</li>
+                  <li>VS Code</li>
+                  <li>Apache NetBeans</li>
+                  <li>Android Studio</li>
+                  <li>XAMPP Server</li>
+                  <li>Microsoft Office</li>
+                </ul>
+              </div>
+            </div>
+
+            <div id="networking" class="skill-row reveal" data-skill-group="networking" data-stagger-index="5">
+              <div class="skill-row-index eyebrow text-muted">06</div>
+              <div class="skill-row-content">
+                <div class="skill-row-head">
+                  <h3>Networking &amp; IT Infrastructure</h3>
+                  <p class="text-muted">Routing, switching, layered protocol diagnostics, and system security fundamentals.</p>
+                </div>
+                <div class="networking-pillars">
+                  <div class="net-pillar">
+                    <h4>Cisco Routing &amp; Switching</h4>
+                    <p class="text-muted">Hands-on experience with routing, switching, subnetting, and device configuration.</p>
+                    <ul class="net-tags">
+                      <li>Cisco Packet Tracer</li>
+                      <li>Routing Protocols</li>
+                      <li>Switching</li>
+                      <li>Subnetting &amp; VLSM</li>
+                      <li>VLAN Configuration</li>
+                    </ul>
+                  </div>
+                  <div class="net-pillar">
+                    <h4>OSI &amp; TCP/IP Architecture</h4>
+                    <p class="text-muted">Standard networking models, LAN/WAN setup, packet switching, and troubleshooting.</p>
+                    <ul class="net-tags">
+                      <li>OSI 7-Layer Model</li>
+                      <li>TCP/IP Suite</li>
+                      <li>LAN/WAN Topology</li>
+                      <li>Network Troubleshooting</li>
+                    </ul>
+                  </div>
+                  <div class="net-pillar">
+                    <h4>Systems Security &amp; Access Control</h4>
+                    <p class="text-muted">Identity and access control, encryption basics, hardening, and web vulnerability awareness.</p>
+                    <ul class="net-tags">
+                      <li>Access Control</li>
+                      <li>Vulnerability Awareness</li>
+                      <li>Secure Authentication</li>
+                      <li>System Hardening</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              <!-- Item 2: MCC A/L -->
-              <div class="timeline-item">
-                <div class="timeline-dot"></div>
-                <div class="timeline-content">
-                  <span class="timeline-date">G.C.E. Advanced Level</span>
-                  <h4>BT/Methodist Central College</h4>
-                  <p class="timeline-school">Batticaloa, Sri Lanka</p>
-                  <button type="button" class="grade-badge grade-toggle-btn" aria-expanded="false"
-                    aria-controls="alResultsPanel">
-                    <span>3S Passes</span>
-                    <i class="fa-solid fa-chevron-down grade-toggle-icon" aria-hidden="true"></i>
-                  </button>
-                  <div id="alResultsPanel" class="timeline-results-panel" hidden>
-                    <div class="results-subject-header">
-                      <span class="results-label">Subject</span>
-                      <span class="results-subject-name">Engineering Technology</span>
-                    </div>
-                    <div class="results-modules-list">
-                      <div class="result-module-row">
-                        <span class="module-name">Engineering Technology</span>
-                        <span class="module-grade grade-s">S</span>
+            <div class="skill-row reveal" data-skill-group="other" data-stagger-index="6">
+              <div class="skill-row-index eyebrow text-muted">07</div>
+              <div class="skill-row-content">
+                <div class="skill-row-head">
+                  <h3>Other Technical &amp; Soft Skills</h3>
+                  <p class="text-muted">Analytical debugging, collaborative workflows, and continuous technical growth.</p>
+                </div>
+                <ul class="skill-items-grid">
+                  <li>Problem Solving</li>
+                  <li>System Architecture</li>
+                  <li>Team Collaboration</li>
+                  <li>Continuous Learning</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Next Chapter Strip -> Field notes (circle) -->
+      <nav class="next-chapter page-gutter" data-tick aria-label="Next page">
+        <a href="#/notes" class="next-chapter-link" data-route="notes" data-transition="circle" data-bracket>
+          <span class="eyebrow text-muted">END OF STREAM · 02/04</span>
+          <div class="next-chapter-row">
+            <div class="next-chapter-title">
+              <span class="eyebrow next-chapter-kicker">NEXT →</span>
+              <span class="next-chapter-name">FIELD NOTES.</span>
+            </div>
+            <div class="next-chapter-wire" aria-hidden="true">
+              <span class="next-chapter-packet"></span>
+            </div>
+          </div>
+        </a>
+      </nav>
+    </div>
+
+    <!-- ==========================================================
+         ROUTE #/notes — FIELD NOTES & ACADEMIC RECORD (Destination Transition: Circle Reveal)
+         ========================================================== -->
+    <div class="page-plane" id="page-notes" data-page="notes" hidden>
+      <section id="notes" class="chapter-section page-gutter" aria-labelledby="notes-heading">
+        <div class="chapter-header" data-tick>
+          <div>
+            <p class="eyebrow text-muted" data-decode="true">03 — FIELD NOTES &amp; RECORD</p>
+            <h1 id="notes-heading" class="section-title">
+              <span class="intro-line-mask"><span class="heading-reveal">NOTES FROM</span></span>
+              <span class="intro-line-mask"><span class="heading-reveal">THE FIELD.</span></span>
+            </h1>
+            <p class="contact-lead">
+              Engineering logs, system lessons, and academic milestones from SLIATE HNDIT and hands-on builds.
+            </p>
+          </div>
+          <span class="eyebrow text-muted chapter-side-note">STREAM · 4 NOTES<br>3 MILESTONES</span>
+        </div>
+
+        <!-- Engineering Field Notes Stream (asklionel.tech /notes row design) -->
+        <p class="eyebrow text-muted notes-stream-label" data-tick>STREAM · 4 ENGINEERING NOTES</p>
+        <ol class="notes-stream">
+          <li class="note-row page-stagger-item" data-bracket>
+            <button type="button" class="note-row-trigger" aria-expanded="false" aria-controls="note-body-04">
+              <span class="note-col-id">
+                <span class="eyebrow note-row-muted">04</span>
+                <span class="eyebrow note-row-muted">NETWORKING</span>
+              </span>
+              <span class="note-col-main">
+                <span class="note-row-title">Subnetting, VLSM &amp; VLAN Segmentation in Cisco Packet Tracer</span>
+                <span class="note-row-excerpt note-row-muted">Designing multi-department LAN topologies without broadcast storm overlap — lessons from configuring trunk links, inter-VLAN routing, and ACLs.</span>
+              </span>
+              <span class="note-col-meta eyebrow note-row-muted">CISCO LABS<br>PACKET TRACER</span>
+              <span class="note-col-arrow" aria-hidden="true">+</span>
+            </button>
+            <div class="note-expand-panel" id="note-body-04" aria-hidden="true">
+              <div class="note-expand-clip">
+                <p class="note-expand-copy text-muted">
+                  Splitting flat networks into logical VLANs paired with Variable Length Subnet Masking (VLSM) cuts wasted address space while isolating traffic domains. Verifying connectivity layer-by-layer across the OSI model — physical link state, VLAN trunk tagging, default gateway reachability, and routing tables — turns guesswork into repeatable diagnostics.
+                </p>
+              </div>
+            </div>
+          </li>
+
+          <li class="note-row page-stagger-item" data-bracket>
+            <button type="button" class="note-row-trigger" aria-expanded="false" aria-controls="note-body-03">
+              <span class="note-col-id">
+                <span class="eyebrow note-row-muted">03</span>
+                <span class="eyebrow note-row-muted">LARAVEL</span>
+              </span>
+              <span class="note-col-main">
+                <span class="note-row-title">Shipping Roommate Finder from Local XAMPP to Railway Production</span>
+                <span class="note-row-excerpt note-row-muted">Structuring Laravel controllers, Blade components, relational MySQL migrations, and environment config for zero-drama cloud deployment.</span>
+              </span>
+              <span class="note-col-meta eyebrow note-row-muted">FULL-STACK<br>FINAL PROJECT</span>
+              <span class="note-col-arrow" aria-hidden="true">+</span>
+            </button>
+            <div class="note-expand-panel" id="note-body-03" aria-hidden="true">
+              <div class="note-expand-clip">
+                <p class="note-expand-copy text-muted">
+                  Moving a Laravel MVC platform from local development to live Railway hosting highlights the value of strict schema migrations, clean query scoping, and environment-driven database credentials. Keeping validation rules and matching logic separated from Blade templates made debugging production edge cases straightforward.
+                </p>
+              </div>
+            </div>
+          </li>
+
+          <li class="note-row page-stagger-item" data-bracket>
+            <button type="button" class="note-row-trigger" aria-expanded="false" aria-controls="note-body-02">
+              <span class="note-col-id">
+                <span class="eyebrow note-row-muted">02</span>
+                <span class="eyebrow note-row-muted">JAVA · JDBC</span>
+              </span>
+              <span class="note-col-main">
+                <span class="note-row-title">Clean CRUD &amp; Parameterized Queries in Java Swing Desktop Apps</span>
+                <span class="note-row-excerpt note-row-muted">Preventing SQL injection and UI freezes by separating Swing event dispatch code from prepared JDBC database calls in Book Management System.</span>
+              </span>
+              <span class="note-col-meta eyebrow note-row-muted">DESKTOP APP<br>MYSQL · OOP</span>
+              <span class="note-col-arrow" aria-hidden="true">+</span>
+            </button>
+            <div class="note-expand-panel" id="note-body-02" aria-hidden="true">
+              <div class="note-expand-clip">
+                <p class="note-expand-copy text-muted">
+                  Encapsulating borrower records, inventory lookups, and lending reports behind dedicated Data Access classes with JDBC PreparedStatements kept the Book Management System secure, maintainable, and easy to extend with fast search and reporting screens.
+                </p>
+              </div>
+            </div>
+          </li>
+
+          <li class="note-row page-stagger-item" data-bracket>
+            <button type="button" class="note-row-trigger" aria-expanded="false" aria-controls="note-body-01">
+              <span class="note-col-id">
+                <span class="eyebrow note-row-muted">01</span>
+                <span class="eyebrow note-row-muted">WEB CORE</span>
+              </span>
+              <span class="note-col-main">
+                <span class="note-row-title">Relational Inventory &amp; Booking Integrity in DriveEase</span>
+                <span class="note-row-excerpt note-row-muted">What my first end-to-end PHP &amp; MySQL platform taught me about form validation, state consistency, and responsive user flows.</span>
+              </span>
+              <span class="note-col-meta eyebrow note-row-muted">PHP · MYSQL<br>FIRST BUILD</span>
+              <span class="note-col-arrow" aria-hidden="true">+</span>
+            </button>
+            <div class="note-expand-panel" id="note-body-01" aria-hidden="true">
+              <div class="note-expand-clip">
+                <p class="note-expand-copy text-muted">
+                  Building DriveEase from scratch with vanilla HTML5, CSS3, JavaScript, PHP, and MySQL grounded my understanding of the full HTTP request lifecycle — from client-side UX feedback to server-side booking persistence and relational foreign keys.
+                </p>
+              </div>
+            </div>
+          </li>
+        </ol>
+
+        <!-- Academic Record & Career Vision -->
+        <div id="education" class="notes-academic-wrap" data-tick>
+          <p class="eyebrow text-muted notes-stream-label">ACADEMIC RECORD · 3 MILESTONES</p>
+          <ol class="academic-stream">
+            <li class="academic-row reveal" data-stagger-index="0">
+              <div class="academic-meta">
+                <span class="eyebrow text-muted">01</span>
+                <span class="eyebrow text-muted">CURRENTLY FOLLOWING</span>
+              </div>
+              <div class="academic-body">
+                <h2>Higher National Diploma in Information Technology (HND IT)</h2>
+                <p class="text-muted academic-desc">
+                  Sri Lanka Institute of Advanced Technological Education (SLIATE) — specializing in Software
+                  Development, DBMS, Web Architecture, and Computer Networking.
+                </p>
+              </div>
+              <div class="academic-right eyebrow text-muted">SLIATE · HNDIT</div>
+            </li>
+
+            <li class="academic-row reveal" data-stagger-index="1">
+              <div class="academic-meta">
+                <span class="eyebrow text-muted">02</span>
+                <span class="eyebrow text-muted">G.C.E. ADVANCED LEVEL</span>
+              </div>
+              <div class="academic-body">
+                <h2>BT/Methodist Central College</h2>
+                <p class="text-muted academic-desc">Batticaloa, Sri Lanka — Engineering Technology Stream.</p>
+
+                <button type="button" class="grade-toggle-btn eyebrow" aria-expanded="false"
+                  aria-controls="alResultsPanel" data-bracket>
+                  <span>3S PASSES — VIEW BREAKDOWN</span>
+                  <span class="toggle-chevron" aria-hidden="true">↓</span>
+                </button>
+
+                <div id="alResultsPanel" class="timeline-results-panel" aria-hidden="true">
+                  <div class="results-panel-clip">
+                    <div class="results-panel-inner">
+                      <div class="results-header eyebrow text-muted">
+                        <span>SUBJECT STREAM</span>
+                        <span>ENGINEERING TECHNOLOGY</span>
                       </div>
-                      <div class="result-module-row">
-                        <span class="module-name">Science For Technology</span>
-                        <span class="module-grade grade-s">S</span>
-                      </div>
-                      <div class="result-module-row">
-                        <span class="module-name">Information Technology</span>
-                        <span class="module-grade grade-s">S</span>
+                      <div class="results-table">
+                        <div class="result-row">
+                          <span>Engineering Technology</span>
+                          <span class="grade-code eyebrow">S</span>
+                        </div>
+                        <div class="result-row">
+                          <span>Science For Technology</span>
+                          <span class="grade-code eyebrow">S</span>
+                        </div>
+                        <div class="result-row">
+                          <span>Information Technology</span>
+                          <span class="grade-code eyebrow">S</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
+              <div class="academic-right eyebrow text-muted">3S PASSES</div>
+            </li>
 
-              <!-- Item 3: MCC O/L -->
-              <div class="timeline-item">
-                <div class="timeline-dot"></div>
-                <div class="timeline-content">
-                  <span class="timeline-date">G.C.E. Ordinary Level</span>
-                  <h4>BT/Methodist Central College</h4>
-                  <p class="timeline-school">Batticaloa, Sri Lanka</p>
-                  <button type="button" class="grade-badge grade-toggle-btn" aria-expanded="false"
-                    aria-controls="olResultsPanel">
-                    <span>1A, 7C, 1S</span>
-                    <i class="fa-solid fa-chevron-down grade-toggle-icon" aria-hidden="true"></i>
-                  </button>
-                  <div id="olResultsPanel" class="timeline-results-panel" hidden>
-                    <div class="results-modules-list">
-                      <div class="result-module-row">
-                        <span class="module-name">Health and Physical Education</span>
-                        <span class="module-grade grade-a">A</span>
-                      </div>
-                      <div class="result-module-row">
-                        <span class="module-name">Drama and Theatre</span>
-                        <span class="module-grade grade-c">C</span>
-                      </div>
-                      <div class="result-module-row">
-                        <span class="module-name">English</span>
-                        <span class="module-grade grade-c">C</span>
-                      </div>
-                      <div class="result-module-row">
-                        <span class="module-name">Geography</span>
-                        <span class="module-grade grade-c">C</span>
-                      </div>
-                      <div class="result-module-row">
-                        <span class="module-name">Maths</span>
-                        <span class="module-grade grade-c">C</span>
-                      </div>
-                      <div class="result-module-row">
-                        <span class="module-name">Religion (Catholicism)</span>
-                        <span class="module-grade grade-c">C</span>
-                      </div>
-                      <div class="result-module-row">
-                        <span class="module-name">Science</span>
-                        <span class="module-grade grade-c">C</span>
-                      </div>
-                      <div class="result-module-row">
-                        <span class="module-name">Tamil</span>
-                        <span class="module-grade grade-c">C</span>
-                      </div>
-                      <div class="result-module-row">
-                        <span class="module-name">History</span>
-                        <span class="module-grade grade-s">S</span>
+            <li class="academic-row reveal" data-stagger-index="2">
+              <div class="academic-meta">
+                <span class="eyebrow text-muted">03</span>
+                <span class="eyebrow text-muted">G.C.E. ORDINARY LEVEL</span>
+              </div>
+              <div class="academic-body">
+                <h2>BT/Methodist Central College</h2>
+                <p class="text-muted academic-desc">Batticaloa, Sri Lanka — Secondary Qualification.</p>
+
+                <button type="button" class="grade-toggle-btn eyebrow" aria-expanded="false"
+                  aria-controls="olResultsPanel" data-bracket>
+                  <span>1A, 7C, 1S — VIEW BREAKDOWN</span>
+                  <span class="toggle-chevron" aria-hidden="true">↓</span>
+                </button>
+
+                <div id="olResultsPanel" class="timeline-results-panel" aria-hidden="true">
+                  <div class="results-panel-clip">
+                    <div class="results-panel-inner">
+                      <div class="results-table">
+                        <div class="result-row">
+                          <span>Health and Physical Education</span>
+                          <span class="grade-code grade-distinction eyebrow">A</span>
+                        </div>
+                        <div class="result-row">
+                          <span>Drama and Theatre</span>
+                          <span class="grade-code eyebrow">C</span>
+                        </div>
+                        <div class="result-row">
+                          <span>English</span>
+                          <span class="grade-code eyebrow">C</span>
+                        </div>
+                        <div class="result-row">
+                          <span>Geography</span>
+                          <span class="grade-code eyebrow">C</span>
+                        </div>
+                        <div class="result-row">
+                          <span>Maths</span>
+                          <span class="grade-code eyebrow">C</span>
+                        </div>
+                        <div class="result-row">
+                          <span>Religion (Catholicism)</span>
+                          <span class="grade-code eyebrow">C</span>
+                        </div>
+                        <div class="result-row">
+                          <span>Science</span>
+                          <span class="grade-code eyebrow">C</span>
+                        </div>
+                        <div class="result-row">
+                          <span>Tamil</span>
+                          <span class="grade-code eyebrow">C</span>
+                        </div>
+                        <div class="result-row">
+                          <span>History</span>
+                          <span class="grade-code eyebrow">S</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+              <div class="academic-right eyebrow text-muted">1A · 7C · 1S</div>
+            </li>
+          </ol>
 
-          <!-- Career & Personal Details Card -->
-          <div class="career-card glass-card reveal-right">
-            <h3 class="card-title"><i class="fa-solid fa-bullseye"></i> Career Goal & Hobbies</h3>
-
-            <div class="career-goal-box">
-              <i class="fa-solid fa-compass-drafting goal-icon"></i>
-              <div>
-                <h4>Career Vision</h4>
-                <p>To become a skilled Software Developer by continuously improving my knowledge in Software
-                  Engineering, Database Management, Networking, and Full-Stack Web Development while contributing to
-                  innovative IT solutions.</p>
-              </div>
-            </div>
-
-            <!-- Spoken Languages -->
-            <div class="detail-group">
-              <span class="detail-label"><i class="fa-solid fa-language"></i> Spoken Languages</span>
-              <div class="language-tags">
-                <span class="lang-tag">🇬🇧 English</span>
-                <span class="lang-tag">🇱🇰 Sinhala</span>
-                <span class="lang-tag">🇱🇰 Tamil</span>
-              </div>
-            </div>
-
-            <!-- Hobbies -->
-            <div class="detail-group">
-              <span class="detail-label"><i class="fa-solid fa-icons"></i> Hobbies & Interests</span>
-              <div class="hobbies-grid">
-                <div class="hobby-pill"><i class="fa-solid fa-code"></i> Coding</div>
-                <div class="hobby-pill"><i class="fa-solid fa-book"></i> Reading</div>
-                <div class="hobby-pill"><i class="fa-solid fa-gamepad"></i> Gaming</div>
-                <div class="hobby-pill"><i class="fa-solid fa-camera"></i> Photography</div>
-                <div class="hobby-pill"><i class="fa-solid fa-plane"></i> Traveling</div>
-              </div>
-            </div>
-          </div>
+          <aside class="vision-strip reveal">
+            <span class="eyebrow text-muted">CAREER VISION</span>
+            <p class="vision-copy">
+              To become a skilled Software Developer by continuously deepening expertise in Software Engineering,
+              Database Management, Networking, and Full-Stack Web Development while contributing to reliable,
+              innovative IT solutions.
+            </p>
+          </aside>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ===== CONTACT SECTION ===== -->
-    <section id="contact" class="section contact-section">
-      <div class="container">
-        <div class="section-header text-center reveal-up">
-          <span class="section-tag">&lt;contact&gt;</span>
-          <h2 class="section-title">🌐 Connect With Me</h2>
-          <p class="section-subtitle">Feel free to reach out for collaborations, project inquiries, or networking!</p>
-          <div class="section-divider"></div>
+      <!-- Next Chapter Strip -> Contact (scale) -->
+      <nav class="next-chapter page-gutter" data-tick aria-label="Next page">
+        <a href="#/contact" class="next-chapter-link" data-route="contact" data-transition="scale" data-bracket>
+          <span class="eyebrow text-muted">END OF STREAM · 03/04</span>
+          <div class="next-chapter-row">
+            <div class="next-chapter-title">
+              <span class="eyebrow next-chapter-kicker">NEXT →</span>
+              <span class="next-chapter-name">CONTACT.</span>
+            </div>
+            <div class="next-chapter-wire" aria-hidden="true">
+              <span class="next-chapter-packet"></span>
+            </div>
+          </div>
+        </a>
+      </nav>
+    </div>
+
+    <!-- ==========================================================
+         ROUTE #/contact — CONTACT (Destination Transition: Fade & Scale)
+         ========================================================== -->
+    <div class="page-plane" id="page-contact" data-page="contact" hidden>
+      <section id="contact" class="chapter-section page-gutter" aria-labelledby="contact-heading">
+        <div class="chapter-header" data-tick>
+          <div>
+            <p class="eyebrow text-muted" data-decode="true">04 — CONTACT</p>
+            <h1 id="contact-heading" class="section-title">
+              <span class="intro-line-mask"><span class="heading-reveal">LET’S TALK</span></span>
+              <span class="intro-line-mask"><span class="heading-reveal">SYSTEMS.</span></span>
+            </h1>
+            <p class="contact-lead">
+              Full-stack builds. Database architecture. Networking collaborations. What’s next?
+            </p>
+          </div>
+          <span class="eyebrow text-muted chapter-side-note">DIRECT CHANNELS<br>4 ENDPOINTS</span>
         </div>
 
-        <div class="contact-grid">
-          <!-- Direct Links Card -->
-          <div class="contact-card glass-card reveal-left">
-            <h3 class="card-title"><i class="fa-solid fa-address-card"></i> Contact Information</h3>
-            <p class="contact-text">I'm always excited to learn, collaborate, and build innovative solutions. Drop me a
-              line anytime!</p>
+        <!-- Signal Routing Pipeline SVG -->
+        <div class="contact-pipeline page-stagger-item" data-tick aria-hidden="true">
+          <svg viewBox="0 0 1200 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="88" width="136" height="44" class="diagram-node"></rect>
+            <text x="70" y="114" text-anchor="middle" class="diagram-label">JV · SRC</text>
 
-            <div class="contact-methods">
-              <a href="mailto:virajwills2003@gmail.com" class="contact-method-item">
-                <div class="contact-icon email-icon"><i class="fa-solid fa-envelope"></i></div>
-                <div>
-                  <span class="method-label">Direct Email</span>
-                  <span class="method-value">virajwills2003@gmail.com</span>
-                </div>
-              </a>
+            <path d="M 138 110 H 540" class="diagram-path"></path>
+            <rect x="-3" y="-3" width="6" height="6" class="packet">
+              <animateMotion dur="2.6s" repeatCount="indefinite" path="M 138 110 H 540"></animateMotion>
+            </rect>
 
-              <a href="https://github.com/virajwills2003-source" target="_blank" rel="noopener"
-                class="contact-method-item">
-                <div class="contact-icon github-icon"><i class="fa-brands fa-github"></i></div>
-                <div>
-                  <span class="method-label">GitHub Profile</span>
-                  <span class="method-value">virajwills2003-source</span>
-                </div>
-              </a>
+            <g class="contact-lane" data-channel="Email">
+              <path d="M 540 110 C 620 110, 620 26, 700 26 H 900" class="diagram-path contact-lane-path"></path>
+              <rect x="-3" y="-3" width="6" height="6" class="packet">
+                <animateMotion dur="2.4s" begin="-0.2s" repeatCount="indefinite"
+                  path="M 540 110 C 620 110, 620 26, 700 26 H 900"></animateMotion>
+              </rect>
+              <rect x="900" y="8" width="298" height="36" class="diagram-node"></rect>
+              <text x="920" y="30" class="diagram-label">DST.01 · EMAIL</text>
+              <text x="1180" y="30" text-anchor="end" class="diagram-label contact-delivered">READY</text>
+            </g>
 
-              <a href="https://www.linkedin.com/in/virajwills2003-source" target="_blank" rel="noopener"
-                class="contact-method-item">
-                <div class="contact-icon linkedin-icon"><i class="fa-brands fa-linkedin-in"></i></div>
-                <div>
-                  <span class="method-label">LinkedIn Profile</span>
-                  <span class="method-value">virajwills2003-source</span>
-                </div>
-              </a>
-            </div>
+            <g class="contact-lane" data-channel="GitHub">
+              <path d="M 540 110 C 620 110, 620 82, 700 82 H 900" class="diagram-path contact-lane-path"></path>
+              <rect x="-3" y="-3" width="6" height="6" class="packet">
+                <animateMotion dur="2.4s" begin="-0.8s" repeatCount="indefinite"
+                  path="M 540 110 C 620 110, 620 82, 700 82 H 900"></animateMotion>
+              </rect>
+              <rect x="900" y="64" width="298" height="36" class="diagram-node"></rect>
+              <text x="920" y="86" class="diagram-label">DST.02 · GITHUB</text>
+              <text x="1180" y="86" text-anchor="end" class="diagram-label contact-delivered">READY</text>
+            </g>
 
-            <div class="social-badges">
-              <a href="mailto:virajwills2003@gmail.com" class="badge-btn badge-gmail">
-                <i class="fa-solid fa-envelope"></i> Email Me
-              </a>
-              <a href="https://github.com/virajwills2003-source" target="_blank" rel="noopener"
-                class="badge-btn badge-gh">
-                <i class="fa-brands fa-github"></i> Follow on GitHub
-              </a>
-            </div>
-          </div>
+            <g class="contact-lane" data-channel="LinkedIn">
+              <path d="M 540 110 C 620 110, 620 138, 700 138 H 900" class="diagram-path contact-lane-path"></path>
+              <rect x="-3" y="-3" width="6" height="6" class="packet">
+                <animateMotion dur="2.4s" begin="-1.4s" repeatCount="indefinite"
+                  path="M 540 110 C 620 110, 620 138, 700 138 H 900"></animateMotion>
+              </rect>
+              <rect x="900" y="120" width="298" height="36" class="diagram-node"></rect>
+              <text x="920" y="142" class="diagram-label">DST.03 · LINKEDIN</text>
+              <text x="1180" y="142" text-anchor="end" class="diagram-label contact-delivered">READY</text>
+            </g>
 
-          <!-- Quick Message Form -->
-          <div class="contact-card glass-card reveal-right">
-            <h3 class="card-title"><i class="fa-solid fa-paper-plane"></i> Send a Message</h3>
-
-            <form id="contactForm" class="contact-form">
-              <div class="form-group">
-                <label for="name">Your Name</label>
-                <input type="text" id="name" required placeholder="Enter your full name">
-              </div>
-
-              <div class="form-group">
-                <label for="email">Your Email</label>
-                <input type="email" id="email" required placeholder="name@example.com">
-              </div>
-
-              <div class="form-group">
-                <label for="subject">Subject</label>
-                <input type="text" id="subject" required placeholder="Project Inquiry / Networking">
-              </div>
-
-              <div class="form-group">
-                <label for="message">Message</label>
-                <textarea id="message" rows="4" required placeholder="Write your message here..."></textarea>
-              </div>
-
-              <!-- Destination selector options -->
-              <div class="form-group destination-group">
-                <label>Send Via Platform:</label>
-                <div class="send-method-toggle">
-                  <label class="method-option active" id="methodWhatsapp">
-                    <input type="radio" name="sendMethod" value="whatsapp" checked>
-                    <i class="fa-brands fa-whatsapp"></i> WhatsApp Direct (+9476926251)
-                  </label>
-                  <label class="method-option" id="methodGmail">
-                    <input type="radio" name="sendMethod" value="gmail">
-                    <i class="fa-solid fa-envelope"></i> Gmail (virajwills2003@gmail.com)
-                  </label>
-                </div>
-              </div>
-
-              <button type="submit" class="btn btn-primary btn-block">
-                <i class="fa-solid fa-paper-plane"></i> Send Message
-              </button>
-
-              <div id="formStatus" class="form-status"></div>
-            </form>
-          </div>
+            <g class="contact-lane" data-channel="WhatsApp">
+              <path d="M 540 110 C 620 110, 620 194, 700 194 H 900" class="diagram-path contact-lane-path"></path>
+              <rect x="-3" y="-3" width="6" height="6" class="packet">
+                <animateMotion dur="2.4s" begin="-2.0s" repeatCount="indefinite"
+                  path="M 540 110 C 620 110, 620 194, 700 194 H 900"></animateMotion>
+              </rect>
+              <rect x="900" y="176" width="298" height="36" class="diagram-node"></rect>
+              <text x="920" y="198" class="diagram-label">DST.04 · WHATSAPP</text>
+              <text x="1180" y="198" text-anchor="end" class="diagram-label contact-delivered">READY</text>
+            </g>
+          </svg>
         </div>
-      </div>
-    </section>
+
+        <div class="contact-rows" data-tick>
+          <a href="mailto:virajwills2003@gmail.com" class="contact-row page-stagger-item" data-channel="Email"
+            data-bracket>
+            <span class="contact-label">Email</span>
+            <span class="contact-meta">
+              <span class="eyebrow contact-muted">VIRAJWILLS2003@GMAIL.COM</span>
+              <span class="eyebrow contact-status">OPEN MAIL CLIENT</span>
+            </span>
+            <span class="contact-arrow" aria-hidden="true">↗</span>
+          </a>
+
+          <a href="https://github.com/virajwills2003-source" target="_blank" rel="noopener noreferrer"
+            class="contact-row page-stagger-item" data-channel="GitHub" data-bracket>
+            <span class="contact-label">GitHub</span>
+            <span class="contact-meta">
+              <span class="eyebrow contact-muted">VIRAJWILLS2003-SOURCE</span>
+              <span class="eyebrow contact-status">VIEW REPOSITORIES</span>
+            </span>
+            <span class="contact-arrow" aria-hidden="true">↗</span>
+          </a>
+
+          <a href="https://www.linkedin.com/in/virajwills2003-source" target="_blank" rel="noopener noreferrer"
+            class="contact-row page-stagger-item" data-channel="LinkedIn" data-bracket>
+            <span class="contact-label">LinkedIn</span>
+            <span class="contact-meta">
+              <span class="eyebrow contact-muted">J.H.P.W. VIRAJ</span>
+              <span class="eyebrow contact-status">CONNECT ON LINKEDIN</span>
+            </span>
+            <span class="contact-arrow" aria-hidden="true">↗</span>
+          </a>
+
+          <a href="https://wa.me/9476926251" target="_blank" rel="noopener noreferrer"
+            class="contact-row page-stagger-item" data-channel="WhatsApp" data-bracket>
+            <span class="contact-label">WhatsApp</span>
+            <span class="contact-meta">
+              <span class="eyebrow contact-muted">+9476926251</span>
+              <span class="eyebrow contact-status">DIRECT MESSAGE</span>
+            </span>
+            <span class="contact-arrow" aria-hidden="true">↗</span>
+          </a>
+        </div>
+
+        <dl class="contact-info-strip reveal">
+          <div>
+            <dt class="eyebrow text-muted">ROLE</dt>
+            <dd>Software &amp; Web Developer · HNDIT Student</dd>
+          </div>
+          <div>
+            <dt class="eyebrow text-muted">FOCUS</dt>
+            <dd>Full-Stack Web / DBMS / Computer Networking</dd>
+          </div>
+          <div>
+            <dt class="eyebrow text-muted">BEST REACHED</dt>
+            <dd>WhatsApp (+9476926251) or Email</dd>
+          </div>
+        </dl>
+
+        <div class="contact-form-panel reveal" data-tick>
+          <div class="form-panel-header">
+            <span class="eyebrow text-muted">DIRECT DISPATCH</span>
+            <h2>Send a Message</h2>
+          </div>
+
+          <form id="contactForm" class="contact-form">
+            <div class="form-row-two">
+              <div class="form-group">
+                <label for="name" class="eyebrow text-muted">Your Name</label>
+                <input type="text" id="name" required placeholder="Enter your full name" autocomplete="name">
+              </div>
+
+              <div class="form-group">
+                <label for="email" class="eyebrow text-muted">Your Email</label>
+                <input type="email" id="email" required placeholder="name@example.com" autocomplete="email">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="subject" class="eyebrow text-muted">Subject</label>
+              <input type="text" id="subject" required placeholder="Project Inquiry / Networking">
+            </div>
+
+            <div class="form-group">
+              <label for="message" class="eyebrow text-muted">Message</label>
+              <textarea id="message" rows="4" required placeholder="Write your message here..."></textarea>
+            </div>
+
+            <div class="form-group">
+              <span class="eyebrow text-muted field-group-label">Send Via Platform</span>
+              <div class="send-method-toggle">
+                <label class="method-option active" id="methodWhatsapp" data-bracket>
+                  <input type="radio" name="sendMethod" value="whatsapp" checked>
+                  <span>WhatsApp Direct (+9476926251)</span>
+                </label>
+                <label class="method-option" id="methodGmail" data-bracket>
+                  <input type="radio" name="sendMethod" value="gmail">
+                  <span>Gmail (virajwills2003@gmail.com)</span>
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-monochrome btn-full" data-bracket>
+              <span>SEND MESSAGE</span>
+              <span class="btn-diag" aria-hidden="true">↗</span>
+            </button>
+
+            <div id="formStatus" class="form-status eyebrow" aria-live="polite"></div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Next Chapter Strip -> Home (scale) -->
+      <nav class="next-chapter page-gutter" data-tick aria-label="Next page">
+        <a href="#/" class="next-chapter-link" data-route="home" data-transition="scale" data-bracket>
+          <span class="eyebrow text-muted">END OF STREAM · 04/04</span>
+          <div class="next-chapter-row">
+            <div class="next-chapter-title">
+              <span class="eyebrow next-chapter-kicker">REPLAY →</span>
+              <span class="next-chapter-name">HOME.</span>
+            </div>
+            <div class="next-chapter-wire" aria-hidden="true">
+              <span class="next-chapter-packet"></span>
+            </div>
+          </div>
+        </a>
+      </nav>
+    </div>
+
   </main>
 
-  <!-- ===== FOOTER ===== -->
-  <footer class="footer">
-    <div class="container footer-container">
-      <p>© 2026 J.H.P.W. Viraj. All rights reserved.</p>
-      <p class="thanks-msg">⭐ Thanks for visiting my GitHub & Portfolio Profile! ⭐</p>
-      <a href="#hero" class="back-to-top" aria-label="Back to top">
-        <i class="fa-solid fa-arrow-up"></i>
-      </a>
+  <!-- ===== PERSISTENT FOOTER ===== -->
+  <footer class="site-footer page-gutter">
+    <div class="footer-left">
+      <span class="eyebrow text-muted">© 2026 J.H.P.W. VIRAJ</span>
+      <button id="motionToggle" class="motion-toggle eyebrow text-muted" type="button" aria-pressed="false"
+        data-bracket>
+        <span class="motion-toggle-dot" aria-hidden="true"></span>
+        <span id="motionToggleLabel">SIGNAL: LIVE</span>
+      </button>
+    </div>
+
+    <div class="footer-right">
+      <a href="#/work" id="footerNextLink" class="editorial-link eyebrow footer-next-link" data-route="work"
+        data-transition="curtain" data-bracket>NEXT → WORK</a>
+      <a href="https://www.linkedin.com/in/virajwills2003-source" target="_blank" rel="noopener noreferrer"
+        class="editorial-link eyebrow text-muted">LINKEDIN ↗</a>
+      <a href="https://github.com/virajwills2003-source" target="_blank" rel="noopener noreferrer"
+        class="editorial-link eyebrow text-muted">GITHUB ↗</a>
+      <a href="mailto:virajwills2003@gmail.com" class="editorial-link eyebrow text-muted">EMAIL ↗</a>
+      <button type="button" id="backToTopBtn" class="editorial-link eyebrow text-muted footer-top-btn" data-bracket>
+        BACK TO TOP ↑
+      </button>
     </div>
   </footer>
 
-  <!-- Deferred Portfolio Interaction & Scroll Engine -->
-  <script src="script.js" defer></script>
+  <!-- Production minified interaction engine (source: ./script.js) -->
+  <script src="./script.v7.min.js" defer></script>
 </body>
 
 </html>
